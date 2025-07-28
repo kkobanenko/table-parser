@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  table-parser:
+    build: .
+    container_name: table-parser-app
+    ports:
+      - "8501:8501"
+    env_file:
+      - .env
+    volumes:
+      - ./temp:/app/temp
+      - ./logs:/app/logs
+      - ./screenshots:/app/screenshots
+    restart: unless-stopped
+    networks:
+      - parser-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  parser-network:
+    driver: bridge

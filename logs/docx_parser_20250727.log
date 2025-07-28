@@ -1,0 +1,5 @@
+2025-07-27 20:09:45,931 - docx_parser - ERROR - Error parsing table 0: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2025-07-27 20:11:50,271 - docx_parser - ERROR - Error parsing table 0: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2025-07-27 20:12:30,926 - docx_parser - ERROR - Error parsing table 0: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2025-07-27 20:12:39,282 - docx_parser - ERROR - Error parsing table 0: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2025-07-28 07:49:21,580 - docx_parser - ERROR - Error parsing table 0: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().

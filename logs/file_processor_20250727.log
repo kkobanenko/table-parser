@@ -1,0 +1,447 @@
+2025-07-27 20:05:30,509 - file_processor - INFO - Processing file: ИИХР 01.01.24 на Деферазирокс.pdf (type: pdf)
+2025-07-27 20:05:30,509 - file_processor - INFO - Parsing file with extension: pdf
+2025-07-27 20:05:32,240 - file_processor - INFO - Found 0 tables in ИИХР 01.01.24 на Деферазирокс.pdf
+2025-07-27 20:05:32,354 - file_processor - ERROR - Error processing file ИИХР 01.01.24 на Деферазирокс.pdf: At least one sheet must be visible
+Traceback (most recent call last):
+  File "/app/processors/file_processor.py", line 74, in process_file
+    output_bytes = self._create_excel(processed_tables, uploaded_file.name)
+  File "/app/processors/file_processor.py", line 128, in _create_excel
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+  File "/usr/local/lib/python3.10/site-packages/pandas/io/excel/_base.py", line 1370, in __exit__
+    self.close()
+  File "/usr/local/lib/python3.10/site-packages/pandas/io/excel/_base.py", line 1374, in close
+    self._save()
+  File "/usr/local/lib/python3.10/site-packages/pandas/io/excel/_openpyxl.py", line 110, in _save
+    self.book.save(self._handles.handle)
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/workbook/workbook.py", line 386, in save
+    save_workbook(self, filename)
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/writer/excel.py", line 294, in save_workbook
+    writer.save()
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/writer/excel.py", line 275, in save
+    self.write_data()
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/writer/excel.py", line 89, in write_data
+    archive.writestr(ARC_WORKBOOK, writer.write())
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/workbook/_writer.py", line 150, in write
+    self.write_views()
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/workbook/_writer.py", line 137, in write_views
+    active = get_active_sheet(self.wb)
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/workbook/_writer.py", line 35, in get_active_sheet
+    raise IndexError("At least one sheet must be visible")
+IndexError: At least one sheet must be visible
+2025-07-27 20:08:57,736 - file_processor - INFO - Processing file: ИИХР 01.01.24 на Деферазирокс.pdf (type: pdf)
+2025-07-27 20:08:57,736 - file_processor - INFO - Parsing file with extension: pdf
+2025-07-27 20:08:58,424 - file_processor - INFO - Found 0 tables in ИИХР 01.01.24 на Деферазирокс.pdf
+2025-07-27 20:08:58,427 - file_processor - ERROR - Error processing file ИИХР 01.01.24 на Деферазирокс.pdf: At least one sheet must be visible
+Traceback (most recent call last):
+  File "/app/processors/file_processor.py", line 74, in process_file
+    output_bytes = self._create_excel(processed_tables, uploaded_file.name)
+  File "/app/processors/file_processor.py", line 128, in _create_excel
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+  File "/usr/local/lib/python3.10/site-packages/pandas/io/excel/_base.py", line 1370, in __exit__
+    self.close()
+  File "/usr/local/lib/python3.10/site-packages/pandas/io/excel/_base.py", line 1374, in close
+    self._save()
+  File "/usr/local/lib/python3.10/site-packages/pandas/io/excel/_openpyxl.py", line 110, in _save
+    self.book.save(self._handles.handle)
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/workbook/workbook.py", line 386, in save
+    save_workbook(self, filename)
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/writer/excel.py", line 294, in save_workbook
+    writer.save()
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/writer/excel.py", line 275, in save
+    self.write_data()
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/writer/excel.py", line 89, in write_data
+    archive.writestr(ARC_WORKBOOK, writer.write())
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/workbook/_writer.py", line 150, in write
+    self.write_views()
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/workbook/_writer.py", line 137, in write_views
+    active = get_active_sheet(self.wb)
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/workbook/_writer.py", line 35, in get_active_sheet
+    raise IndexError("At least one sheet must be visible")
+IndexError: At least one sheet must be visible
+2025-07-27 20:08:58,431 - file_processor - INFO - Processing file: Рош-Москва 03.06.25.pdf (type: pdf)
+2025-07-27 20:08:58,431 - file_processor - INFO - Parsing file with extension: pdf
+2025-07-27 20:09:03,410 - file_processor - INFO - Found 0 tables in Рош-Москва 03.06.25.pdf
+2025-07-27 20:09:03,414 - file_processor - ERROR - Error processing file Рош-Москва 03.06.25.pdf: At least one sheet must be visible
+Traceback (most recent call last):
+  File "/app/processors/file_processor.py", line 74, in process_file
+    output_bytes = self._create_excel(processed_tables, uploaded_file.name)
+  File "/app/processors/file_processor.py", line 128, in _create_excel
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+  File "/usr/local/lib/python3.10/site-packages/pandas/io/excel/_base.py", line 1370, in __exit__
+    self.close()
+  File "/usr/local/lib/python3.10/site-packages/pandas/io/excel/_base.py", line 1374, in close
+    self._save()
+  File "/usr/local/lib/python3.10/site-packages/pandas/io/excel/_openpyxl.py", line 110, in _save
+    self.book.save(self._handles.handle)
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/workbook/workbook.py", line 386, in save
+    save_workbook(self, filename)
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/writer/excel.py", line 294, in save_workbook
+    writer.save()
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/writer/excel.py", line 275, in save
+    self.write_data()
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/writer/excel.py", line 89, in write_data
+    archive.writestr(ARC_WORKBOOK, writer.write())
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/workbook/_writer.py", line 150, in write
+    self.write_views()
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/workbook/_writer.py", line 137, in write_views
+    active = get_active_sheet(self.wb)
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/workbook/_writer.py", line 35, in get_active_sheet
+    raise IndexError("At least one sheet must be visible")
+IndexError: At least one sheet must be visible
+2025-07-27 20:09:37,077 - file_processor - INFO - Processing file: ИИХР 01.01.24 на Деферазирокс.pdf (type: pdf)
+2025-07-27 20:09:37,078 - file_processor - INFO - Parsing file with extension: pdf
+2025-07-27 20:09:37,623 - file_processor - INFO - Found 0 tables in ИИХР 01.01.24 на Деферазирокс.pdf
+2025-07-27 20:09:37,627 - file_processor - ERROR - Error processing file ИИХР 01.01.24 на Деферазирокс.pdf: At least one sheet must be visible
+Traceback (most recent call last):
+  File "/app/processors/file_processor.py", line 74, in process_file
+    output_bytes = self._create_excel(processed_tables, uploaded_file.name)
+  File "/app/processors/file_processor.py", line 128, in _create_excel
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+  File "/usr/local/lib/python3.10/site-packages/pandas/io/excel/_base.py", line 1370, in __exit__
+    self.close()
+  File "/usr/local/lib/python3.10/site-packages/pandas/io/excel/_base.py", line 1374, in close
+    self._save()
+  File "/usr/local/lib/python3.10/site-packages/pandas/io/excel/_openpyxl.py", line 110, in _save
+    self.book.save(self._handles.handle)
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/workbook/workbook.py", line 386, in save
+    save_workbook(self, filename)
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/writer/excel.py", line 294, in save_workbook
+    writer.save()
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/writer/excel.py", line 275, in save
+    self.write_data()
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/writer/excel.py", line 89, in write_data
+    archive.writestr(ARC_WORKBOOK, writer.write())
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/workbook/_writer.py", line 150, in write
+    self.write_views()
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/workbook/_writer.py", line 137, in write_views
+    active = get_active_sheet(self.wb)
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/workbook/_writer.py", line 35, in get_active_sheet
+    raise IndexError("At least one sheet must be visible")
+IndexError: At least one sheet must be visible
+2025-07-27 20:09:37,631 - file_processor - INFO - Processing file: Рош-Москва 03.06.25.pdf (type: pdf)
+2025-07-27 20:09:37,631 - file_processor - INFO - Parsing file with extension: pdf
+2025-07-27 20:09:42,551 - file_processor - INFO - Found 0 tables in Рош-Москва 03.06.25.pdf
+2025-07-27 20:09:42,555 - file_processor - ERROR - Error processing file Рош-Москва 03.06.25.pdf: At least one sheet must be visible
+Traceback (most recent call last):
+  File "/app/processors/file_processor.py", line 74, in process_file
+    output_bytes = self._create_excel(processed_tables, uploaded_file.name)
+  File "/app/processors/file_processor.py", line 128, in _create_excel
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+  File "/usr/local/lib/python3.10/site-packages/pandas/io/excel/_base.py", line 1370, in __exit__
+    self.close()
+  File "/usr/local/lib/python3.10/site-packages/pandas/io/excel/_base.py", line 1374, in close
+    self._save()
+  File "/usr/local/lib/python3.10/site-packages/pandas/io/excel/_openpyxl.py", line 110, in _save
+    self.book.save(self._handles.handle)
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/workbook/workbook.py", line 386, in save
+    save_workbook(self, filename)
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/writer/excel.py", line 294, in save_workbook
+    writer.save()
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/writer/excel.py", line 275, in save
+    self.write_data()
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/writer/excel.py", line 89, in write_data
+    archive.writestr(ARC_WORKBOOK, writer.write())
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/workbook/_writer.py", line 150, in write
+    self.write_views()
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/workbook/_writer.py", line 137, in write_views
+    active = get_active_sheet(self.wb)
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/workbook/_writer.py", line 35, in get_active_sheet
+    raise IndexError("At least one sheet must be visible")
+IndexError: At least one sheet must be visible
+2025-07-27 20:09:42,557 - file_processor - INFO - Processing file: Р-фарм 24.01.24.docx (type: docx)
+2025-07-27 20:09:42,558 - file_processor - INFO - Parsing file with extension: docx
+2025-07-27 20:09:42,945 - file_processor - INFO - Found 2 tables in Р-фарм 24.01.24.docx
+2025-07-27 20:09:43,006 - file_processor - INFO - Processing file: Сандоз 14.07.25.pdf (type: pdf)
+2025-07-27 20:09:43,006 - file_processor - INFO - Parsing file with extension: pdf
+2025-07-27 20:09:45,723 - file_processor - INFO - Found 6 tables in Сандоз 14.07.25.pdf
+2025-07-27 20:09:45,911 - file_processor - INFO - Processing file: СеллАрт 03.02.2025.docx (type: docx)
+2025-07-27 20:09:45,911 - file_processor - INFO - Parsing file with extension: docx
+2025-07-27 20:09:45,931 - file_processor - INFO - Found 0 tables in СеллАрт 03.02.2025.docx
+2025-07-27 20:09:45,935 - file_processor - ERROR - Error processing file СеллАрт 03.02.2025.docx: At least one sheet must be visible
+Traceback (most recent call last):
+  File "/app/processors/file_processor.py", line 74, in process_file
+    output_bytes = self._create_excel(processed_tables, uploaded_file.name)
+  File "/app/processors/file_processor.py", line 128, in _create_excel
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+  File "/usr/local/lib/python3.10/site-packages/pandas/io/excel/_base.py", line 1370, in __exit__
+    self.close()
+  File "/usr/local/lib/python3.10/site-packages/pandas/io/excel/_base.py", line 1374, in close
+    self._save()
+  File "/usr/local/lib/python3.10/site-packages/pandas/io/excel/_openpyxl.py", line 110, in _save
+    self.book.save(self._handles.handle)
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/workbook/workbook.py", line 386, in save
+    save_workbook(self, filename)
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/writer/excel.py", line 294, in save_workbook
+    writer.save()
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/writer/excel.py", line 275, in save
+    self.write_data()
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/writer/excel.py", line 89, in write_data
+    archive.writestr(ARC_WORKBOOK, writer.write())
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/workbook/_writer.py", line 150, in write
+    self.write_views()
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/workbook/_writer.py", line 137, in write_views
+    active = get_active_sheet(self.wb)
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/workbook/_writer.py", line 35, in get_active_sheet
+    raise IndexError("At least one sheet must be visible")
+IndexError: At least one sheet must be visible
+2025-07-27 20:11:49,866 - file_processor - INFO - Processing file: Р-фарм 24.01.24.docx (type: docx)
+2025-07-27 20:11:49,866 - file_processor - INFO - Parsing file with extension: docx
+2025-07-27 20:11:50,197 - file_processor - INFO - Found 2 tables in Р-фарм 24.01.24.docx
+2025-07-27 20:11:50,250 - file_processor - INFO - Processing file: СеллАрт 03.02.2025.docx (type: docx)
+2025-07-27 20:11:50,251 - file_processor - INFO - Parsing file with extension: docx
+2025-07-27 20:11:50,271 - file_processor - INFO - Found 0 tables in СеллАрт 03.02.2025.docx
+2025-07-27 20:11:50,277 - file_processor - ERROR - Error processing file СеллАрт 03.02.2025.docx: At least one sheet must be visible
+Traceback (most recent call last):
+  File "/app/processors/file_processor.py", line 74, in process_file
+    output_bytes = self._create_excel(processed_tables, uploaded_file.name)
+  File "/app/processors/file_processor.py", line 128, in _create_excel
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+  File "/usr/local/lib/python3.10/site-packages/pandas/io/excel/_base.py", line 1370, in __exit__
+    self.close()
+  File "/usr/local/lib/python3.10/site-packages/pandas/io/excel/_base.py", line 1374, in close
+    self._save()
+  File "/usr/local/lib/python3.10/site-packages/pandas/io/excel/_openpyxl.py", line 110, in _save
+    self.book.save(self._handles.handle)
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/workbook/workbook.py", line 386, in save
+    save_workbook(self, filename)
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/writer/excel.py", line 294, in save_workbook
+    writer.save()
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/writer/excel.py", line 275, in save
+    self.write_data()
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/writer/excel.py", line 89, in write_data
+    archive.writestr(ARC_WORKBOOK, writer.write())
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/workbook/_writer.py", line 150, in write
+    self.write_views()
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/workbook/_writer.py", line 137, in write_views
+    active = get_active_sheet(self.wb)
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/workbook/_writer.py", line 35, in get_active_sheet
+    raise IndexError("At least one sheet must be visible")
+IndexError: At least one sheet must be visible
+2025-07-27 20:12:30,541 - file_processor - INFO - Processing file: Р-фарм 24.01.24.docx (type: docx)
+2025-07-27 20:12:30,541 - file_processor - INFO - Parsing file with extension: docx
+2025-07-27 20:12:30,852 - file_processor - INFO - Found 2 tables in Р-фарм 24.01.24.docx
+2025-07-27 20:12:30,907 - file_processor - INFO - Processing file: СеллАрт 03.02.2025.docx (type: docx)
+2025-07-27 20:12:30,907 - file_processor - INFO - Parsing file with extension: docx
+2025-07-27 20:12:30,927 - file_processor - INFO - Found 0 tables in СеллАрт 03.02.2025.docx
+2025-07-27 20:12:30,931 - file_processor - ERROR - Error processing file СеллАрт 03.02.2025.docx: At least one sheet must be visible
+Traceback (most recent call last):
+  File "/app/processors/file_processor.py", line 74, in process_file
+    output_bytes = self._create_excel(processed_tables, uploaded_file.name)
+  File "/app/processors/file_processor.py", line 128, in _create_excel
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+  File "/usr/local/lib/python3.10/site-packages/pandas/io/excel/_base.py", line 1370, in __exit__
+    self.close()
+  File "/usr/local/lib/python3.10/site-packages/pandas/io/excel/_base.py", line 1374, in close
+    self._save()
+  File "/usr/local/lib/python3.10/site-packages/pandas/io/excel/_openpyxl.py", line 110, in _save
+    self.book.save(self._handles.handle)
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/workbook/workbook.py", line 386, in save
+    save_workbook(self, filename)
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/writer/excel.py", line 294, in save_workbook
+    writer.save()
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/writer/excel.py", line 275, in save
+    self.write_data()
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/writer/excel.py", line 89, in write_data
+    archive.writestr(ARC_WORKBOOK, writer.write())
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/workbook/_writer.py", line 150, in write
+    self.write_views()
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/workbook/_writer.py", line 137, in write_views
+    active = get_active_sheet(self.wb)
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/workbook/_writer.py", line 35, in get_active_sheet
+    raise IndexError("At least one sheet must be visible")
+IndexError: At least one sheet must be visible
+2025-07-27 20:12:30,934 - file_processor - INFO - Processing file: ИИХР 01.01.24 на Деферазирокс.pdf (type: pdf)
+2025-07-27 20:12:30,934 - file_processor - INFO - Parsing file with extension: pdf
+2025-07-27 20:12:31,557 - file_processor - INFO - Found 0 tables in ИИХР 01.01.24 на Деферазирокс.pdf
+2025-07-27 20:12:31,561 - file_processor - ERROR - Error processing file ИИХР 01.01.24 на Деферазирокс.pdf: At least one sheet must be visible
+Traceback (most recent call last):
+  File "/app/processors/file_processor.py", line 74, in process_file
+    output_bytes = self._create_excel(processed_tables, uploaded_file.name)
+  File "/app/processors/file_processor.py", line 128, in _create_excel
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+  File "/usr/local/lib/python3.10/site-packages/pandas/io/excel/_base.py", line 1370, in __exit__
+    self.close()
+  File "/usr/local/lib/python3.10/site-packages/pandas/io/excel/_base.py", line 1374, in close
+    self._save()
+  File "/usr/local/lib/python3.10/site-packages/pandas/io/excel/_openpyxl.py", line 110, in _save
+    self.book.save(self._handles.handle)
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/workbook/workbook.py", line 386, in save
+    save_workbook(self, filename)
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/writer/excel.py", line 294, in save_workbook
+    writer.save()
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/writer/excel.py", line 275, in save
+    self.write_data()
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/writer/excel.py", line 89, in write_data
+    archive.writestr(ARC_WORKBOOK, writer.write())
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/workbook/_writer.py", line 150, in write
+    self.write_views()
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/workbook/_writer.py", line 137, in write_views
+    active = get_active_sheet(self.wb)
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/workbook/_writer.py", line 35, in get_active_sheet
+    raise IndexError("At least one sheet must be visible")
+IndexError: At least one sheet must be visible
+2025-07-27 20:12:31,564 - file_processor - INFO - Processing file: Рош-Москва 03.06.25.pdf (type: pdf)
+2025-07-27 20:12:31,564 - file_processor - INFO - Parsing file with extension: pdf
+2025-07-27 20:12:36,883 - file_processor - INFO - Found 0 tables in Рош-Москва 03.06.25.pdf
+2025-07-27 20:12:36,887 - file_processor - ERROR - Error processing file Рош-Москва 03.06.25.pdf: At least one sheet must be visible
+Traceback (most recent call last):
+  File "/app/processors/file_processor.py", line 74, in process_file
+    output_bytes = self._create_excel(processed_tables, uploaded_file.name)
+  File "/app/processors/file_processor.py", line 128, in _create_excel
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+  File "/usr/local/lib/python3.10/site-packages/pandas/io/excel/_base.py", line 1370, in __exit__
+    self.close()
+  File "/usr/local/lib/python3.10/site-packages/pandas/io/excel/_base.py", line 1374, in close
+    self._save()
+  File "/usr/local/lib/python3.10/site-packages/pandas/io/excel/_openpyxl.py", line 110, in _save
+    self.book.save(self._handles.handle)
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/workbook/workbook.py", line 386, in save
+    save_workbook(self, filename)
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/writer/excel.py", line 294, in save_workbook
+    writer.save()
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/writer/excel.py", line 275, in save
+    self.write_data()
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/writer/excel.py", line 89, in write_data
+    archive.writestr(ARC_WORKBOOK, writer.write())
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/workbook/_writer.py", line 150, in write
+    self.write_views()
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/workbook/_writer.py", line 137, in write_views
+    active = get_active_sheet(self.wb)
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/workbook/_writer.py", line 35, in get_active_sheet
+    raise IndexError("At least one sheet must be visible")
+IndexError: At least one sheet must be visible
+2025-07-27 20:12:36,889 - file_processor - INFO - Processing file: Р-фарм 24.01.24.docx (type: docx)
+2025-07-27 20:12:36,889 - file_processor - INFO - Parsing file with extension: docx
+2025-07-27 20:12:37,189 - file_processor - INFO - Found 2 tables in Р-фарм 24.01.24.docx
+2025-07-27 20:12:37,253 - file_processor - INFO - Processing file: Сандоз 14.07.25.pdf (type: pdf)
+2025-07-27 20:12:37,253 - file_processor - INFO - Parsing file with extension: pdf
+2025-07-27 20:12:39,077 - file_processor - INFO - Found 6 tables in Сандоз 14.07.25.pdf
+2025-07-27 20:12:39,262 - file_processor - INFO - Processing file: СеллАрт 03.02.2025.docx (type: docx)
+2025-07-27 20:12:39,263 - file_processor - INFO - Parsing file with extension: docx
+2025-07-27 20:12:39,283 - file_processor - INFO - Found 0 tables in СеллАрт 03.02.2025.docx
+2025-07-27 20:12:39,286 - file_processor - ERROR - Error processing file СеллАрт 03.02.2025.docx: At least one sheet must be visible
+Traceback (most recent call last):
+  File "/app/processors/file_processor.py", line 74, in process_file
+    output_bytes = self._create_excel(processed_tables, uploaded_file.name)
+  File "/app/processors/file_processor.py", line 128, in _create_excel
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+  File "/usr/local/lib/python3.10/site-packages/pandas/io/excel/_base.py", line 1370, in __exit__
+    self.close()
+  File "/usr/local/lib/python3.10/site-packages/pandas/io/excel/_base.py", line 1374, in close
+    self._save()
+  File "/usr/local/lib/python3.10/site-packages/pandas/io/excel/_openpyxl.py", line 110, in _save
+    self.book.save(self._handles.handle)
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/workbook/workbook.py", line 386, in save
+    save_workbook(self, filename)
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/writer/excel.py", line 294, in save_workbook
+    writer.save()
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/writer/excel.py", line 275, in save
+    self.write_data()
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/writer/excel.py", line 89, in write_data
+    archive.writestr(ARC_WORKBOOK, writer.write())
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/workbook/_writer.py", line 150, in write
+    self.write_views()
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/workbook/_writer.py", line 137, in write_views
+    active = get_active_sheet(self.wb)
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/workbook/_writer.py", line 35, in get_active_sheet
+    raise IndexError("At least one sheet must be visible")
+IndexError: At least one sheet must be visible
+2025-07-27 20:17:05,132 - file_processor - INFO - Processing file: Сандоз 14.07.25.pdf (type: pdf)
+2025-07-27 20:17:05,132 - file_processor - INFO - Parsing file with extension: pdf
+2025-07-27 20:17:06,939 - file_processor - INFO - Found 6 tables in Сандоз 14.07.25.pdf
+2025-07-28 07:49:13,582 - file_processor - INFO - Processing file: ИИХР 01.01.24 на Деферазирокс.pdf (type: pdf)
+2025-07-28 07:49:13,583 - file_processor - INFO - Parsing file with extension: pdf
+2025-07-28 07:49:14,189 - file_processor - INFO - Found 0 tables in ИИХР 01.01.24 на Деферазирокс.pdf
+2025-07-28 07:49:14,198 - file_processor - ERROR - Error processing file ИИХР 01.01.24 на Деферазирокс.pdf: At least one sheet must be visible
+Traceback (most recent call last):
+  File "/app/processors/file_processor.py", line 74, in process_file
+    output_bytes = self._create_excel(processed_tables, uploaded_file.name)
+  File "/app/processors/file_processor.py", line 128, in _create_excel
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+  File "/usr/local/lib/python3.10/site-packages/pandas/io/excel/_base.py", line 1370, in __exit__
+    self.close()
+  File "/usr/local/lib/python3.10/site-packages/pandas/io/excel/_base.py", line 1374, in close
+    self._save()
+  File "/usr/local/lib/python3.10/site-packages/pandas/io/excel/_openpyxl.py", line 110, in _save
+    self.book.save(self._handles.handle)
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/workbook/workbook.py", line 386, in save
+    save_workbook(self, filename)
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/writer/excel.py", line 294, in save_workbook
+    writer.save()
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/writer/excel.py", line 275, in save
+    self.write_data()
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/writer/excel.py", line 89, in write_data
+    archive.writestr(ARC_WORKBOOK, writer.write())
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/workbook/_writer.py", line 150, in write
+    self.write_views()
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/workbook/_writer.py", line 137, in write_views
+    active = get_active_sheet(self.wb)
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/workbook/_writer.py", line 35, in get_active_sheet
+    raise IndexError("At least one sheet must be visible")
+IndexError: At least one sheet must be visible
+2025-07-28 07:49:14,202 - file_processor - INFO - Processing file: Рош-Москва 03.06.25.pdf (type: pdf)
+2025-07-28 07:49:14,202 - file_processor - INFO - Parsing file with extension: pdf
+2025-07-28 07:49:19,210 - file_processor - INFO - Found 0 tables in Рош-Москва 03.06.25.pdf
+2025-07-28 07:49:19,218 - file_processor - ERROR - Error processing file Рош-Москва 03.06.25.pdf: At least one sheet must be visible
+Traceback (most recent call last):
+  File "/app/processors/file_processor.py", line 74, in process_file
+    output_bytes = self._create_excel(processed_tables, uploaded_file.name)
+  File "/app/processors/file_processor.py", line 128, in _create_excel
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+  File "/usr/local/lib/python3.10/site-packages/pandas/io/excel/_base.py", line 1370, in __exit__
+    self.close()
+  File "/usr/local/lib/python3.10/site-packages/pandas/io/excel/_base.py", line 1374, in close
+    self._save()
+  File "/usr/local/lib/python3.10/site-packages/pandas/io/excel/_openpyxl.py", line 110, in _save
+    self.book.save(self._handles.handle)
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/workbook/workbook.py", line 386, in save
+    save_workbook(self, filename)
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/writer/excel.py", line 294, in save_workbook
+    writer.save()
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/writer/excel.py", line 275, in save
+    self.write_data()
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/writer/excel.py", line 89, in write_data
+    archive.writestr(ARC_WORKBOOK, writer.write())
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/workbook/_writer.py", line 150, in write
+    self.write_views()
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/workbook/_writer.py", line 137, in write_views
+    active = get_active_sheet(self.wb)
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/workbook/_writer.py", line 35, in get_active_sheet
+    raise IndexError("At least one sheet must be visible")
+IndexError: At least one sheet must be visible
+2025-07-28 07:49:19,223 - file_processor - INFO - Processing file: Р-фарм 24.01.24.docx (type: docx)
+2025-07-28 07:49:19,224 - file_processor - INFO - Parsing file with extension: docx
+2025-07-28 07:49:19,519 - file_processor - INFO - Found 2 tables in Р-фарм 24.01.24.docx
+2025-07-28 07:49:19,571 - file_processor - INFO - Processing file: Сандоз 14.07.25.pdf (type: pdf)
+2025-07-28 07:49:19,572 - file_processor - INFO - Parsing file with extension: pdf
+2025-07-28 07:49:21,374 - file_processor - INFO - Found 6 tables in Сандоз 14.07.25.pdf
+2025-07-28 07:49:21,559 - file_processor - INFO - Processing file: СеллАрт 03.02.2025.docx (type: docx)
+2025-07-28 07:49:21,559 - file_processor - INFO - Parsing file with extension: docx
+2025-07-28 07:49:21,580 - file_processor - INFO - Found 0 tables in СеллАрт 03.02.2025.docx
+2025-07-28 07:49:21,583 - file_processor - ERROR - Error processing file СеллАрт 03.02.2025.docx: At least one sheet must be visible
+Traceback (most recent call last):
+  File "/app/processors/file_processor.py", line 74, in process_file
+    output_bytes = self._create_excel(processed_tables, uploaded_file.name)
+  File "/app/processors/file_processor.py", line 128, in _create_excel
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+  File "/usr/local/lib/python3.10/site-packages/pandas/io/excel/_base.py", line 1370, in __exit__
+    self.close()
+  File "/usr/local/lib/python3.10/site-packages/pandas/io/excel/_base.py", line 1374, in close
+    self._save()
+  File "/usr/local/lib/python3.10/site-packages/pandas/io/excel/_openpyxl.py", line 110, in _save
+    self.book.save(self._handles.handle)
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/workbook/workbook.py", line 386, in save
+    save_workbook(self, filename)
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/writer/excel.py", line 294, in save_workbook
+    writer.save()
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/writer/excel.py", line 275, in save
+    self.write_data()
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/writer/excel.py", line 89, in write_data
+    archive.writestr(ARC_WORKBOOK, writer.write())
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/workbook/_writer.py", line 150, in write
+    self.write_views()
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/workbook/_writer.py", line 137, in write_views
+    active = get_active_sheet(self.wb)
+  File "/usr/local/lib/python3.10/site-packages/openpyxl/workbook/_writer.py", line 35, in get_active_sheet
+    raise IndexError("At least one sheet must be visible")
+IndexError: At least one sheet must be visible
