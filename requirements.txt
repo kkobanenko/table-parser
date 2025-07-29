@@ -58,7 +58,14 @@ pytest-cov==4.1.0
 
 # Типизация
 mypy==1.5.1
-typing-extensions==4.7.1
+typing-extensions
 
 # Web-инструменты
 requests==2.31.0
+
+camelot-py[cv]>=0.11
+pdf2image>=1.16
+poppler-utils         # системный пакет, обязателен для pdf2image
+ghostscript           # нужен Camelot
+layoutparser[layout-model]  # опционально для сложных макетов
+fastapi>=0.110
