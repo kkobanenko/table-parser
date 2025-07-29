@@ -69,6 +69,7 @@ class FileProcessor:
 
             # Извлечение таблиц
             tables = parser.extract_tables(file_path)
+            print(f"Извлечено {len(tables)} таблиц из файла {uploaded_file.name}")
 
             # Обработка таблиц
             processed_tables = []
