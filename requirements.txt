@@ -1,16 +1,64 @@
+# Базовые библиотеки Python
+python-dotenv==1.0.0
 streamlit==1.28.1
 pandas==2.1.3
-openpyxl==3.1.2
+numpy==1.24.3
+
+# Парсинг документов
 pdfplumber==0.10.3
 tabula-py==2.8.2
 python-docx==1.0.1
+openpyxl==3.1.2
+pikepdf==8.0.0
+
+# Парсинг HTML и XML
 beautifulsoup4==4.12.2
 lxml==4.9.3
-opencv-python==4.8.1.78
+
+# OCR и обработка изображений
 pytesseract==0.3.10
 Pillow==10.1.0
+opencv-python==4.8.1.78
+pdf2image==1.16.3
+
+# Работа с файлами
 python-multipart==0.0.6
-python-dotenv==1.0.0
-aiofiles==23.2.1
-numpy==1.24.3
 chardet==5.2.0
+
+# Научные вычисления и обработка данных
+scipy==1.10.1
+scikit-learn==1.2.2
+
+# HTML парсинг (доп. библиотека)
+html5lib==1.1
+
+# Логирование и отладка
+structlog==23.1.0
+
+# Работа с датами
+python-dateutil==2.8.2
+
+# Кэширование
+cachetools==5.3.1
+
+# Дополнительные утилиты
+tqdm==4.65.0
+click==8.1.3
+
+# Безопасность
+cryptography==41.0.3
+
+# Необязательные зависимости для расширенной обработки
+thefuzz==0.20.0  # Нечеткий поиск
+unidecode==1.3.6  # Транслитерация
+
+# Тестирование (опционально)
+pytest==7.4.2
+pytest-cov==4.1.0
+
+# Типизация
+mypy==1.5.1
+typing-extensions==4.7.1
+
+# Web-инструменты
+requests==2.31.0
