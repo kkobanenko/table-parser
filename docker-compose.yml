@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 services:
   table-parser:
@@ -7,7 +7,9 @@ services:
     ports:
       - "8501:8501"
     volumes:
+      # Основная папка проекта монтируется прямо в /app
       - ./app:/app
+      # Временные и логовые папки
       - ./temp:/app/temp
       - ./logs:/app/logs
       - ./screenshots:/app/screenshots
