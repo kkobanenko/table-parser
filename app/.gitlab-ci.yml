@@ -1,0 +1,26 @@
+image: python:3.10
+
+stages:
+  - install
+  - test
+
+variables:
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+  PYTHONDONTWRITEBYTECODE: "1"
+
+before_script:
+  - python -V
+  - pip install --upgrade pip
+  - pip install -r requirements.txt
+
+install:
+  stage: install
+  script:
+    - echo "Dependencies installed."
+
+test:
+  stage: test
+  script:
+    - pytest
+  tags:
+    - table_parser_test

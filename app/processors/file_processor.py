@@ -1,28 +1,28 @@
 from __future__ import annotations
+
 from datetime import datetime
 from io import BytesIO
 from pathlib import Path
-from typing import Any, List
+from typing import Any, List, Optional
 
 import pandas as pd
-import streamlit as st  # только для типизации
+import streamlit as st  # only for typing
+from utils.logger import setup_logger
+from utils.file_handler import FileHandler
+from utils.error_handler import ErrorHandler
 
 from parsers.pdf_parser import PDFParser
 from parsers.docx_parser import DOCXParser
 from parsers.csv_parser import CSVParser
-from utils.logger import setup_logger
 
 logger = setup_logger("file_processor")
 
 
 class FileProcessor:
     """
-    Принимает UploadedFile, извлекает таблицы и возвращает словарь с:
-    - tables_count
-    - output_filename
-    - data (Excel bytes)
-    - ocr_config (если применялся OCR-тюнинг)
-    - ocr_score (если применялся OCR-тюнинг)
+    Принимает Streamlit-объект UploadedFile, извлекает таблицы и
+    возвращает словарь-результат. Если таблиц нет, Excel-файл не
+    создаётся.
     """
 
     def __init__(self) -> None:
@@ -31,41 +31,47 @@ class FileProcessor:
             ".docx": DOCXParser(),
             ".doc": DOCXParser(),
             ".csv": CSVParser(),
+            ".txt": CSVParser(),
         }
 
     def process_file(
         self,
-        uploaded_file: "st.runtime.uploaded_file_manager.UploadedFile",
+        uploaded_file: "st.runtime.uploaded_file_manager.UploadedFile",  # type: ignore
+        pdf_options: Optional[dict[str, Any]] = None
     ) -> dict[str, Any]:
-        file_name = getattr(uploaded_file, "name", None) \
-                    or getattr(uploaded_file, "filename", None)
+        file_name = getattr(uploaded_file, "name", None) or getattr(
+            uploaded_file, "filename", None
+        )
         if not file_name:
-            raise AttributeError("Uploaded file has no name")
+            raise AttributeError("Uploaded file has no .name/.filename")
 
         suffix = Path(file_name).suffix.lower()
         if suffix not in self.parsers:
             raise ValueError(f"Unsupported file type: {suffix}")
 
+        # write to temp for parser
         tmp_path = Path("/tmp") / file_name
         tmp_path.write_bytes(uploaded_file.read())
 
         parser = self.parsers[suffix]
-        tables = parser.extract_tables(tmp_path)
+        try:
+            # PDF gets passed options
+            if suffix == ".pdf":
+                tables = parser.extract_tables(tmp_path, pdf_options or {})
+            else:
+                tables = parser.extract_tables(tmp_path)
+        except Exception as e:
+            err = ErrorHandler.handle_error(e, {"filename": file_name})
+            logger.error("Error parsing %s: %s", file_name, err["error_message"])
+            return {"tables_count": 0, "output_filename": None, "data": None}
+
         tables_cnt = len(tables)
         logger.info("Файл %s → извлечено %s таблиц", file_name, tables_cnt)
 
-        # если нет таблиц
         if tables_cnt == 0:
-            return {
-                "tables_count": 0,
-                "output_filename": None,
-                "data": None,
-            }
+            return {"tables_count": 0, "output_filename": None, "data": None}
 
-        # извлекаем OCR-метаданные из первой таблицы (если есть)
-        ocr_config = tables[0].get("ocr_config")
-        ocr_score  = tables[0].get("ocr_score")
-
+        # build Excel
         excel_bytes = self._create_excel(tables, file_name)
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
         output_name = f"{Path(file_name).stem}_tables_{ts}.xlsx"
@@ -74,8 +80,6 @@ class FileProcessor:
             "tables_count": tables_cnt,
             "output_filename": output_name,
             "data": excel_bytes,
-            "ocr_config": ocr_config,
-            "ocr_score": ocr_score,
         }
 
     @staticmethod
