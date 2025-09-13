@@ -38,6 +38,13 @@ try:
 except ImportError:
     MARKITDOWN_AVAILABLE = False
 
+# Условный импорт PaddleOCR парсера
+try:
+    from parsers.paddleocr_parser import PaddleOCRParser
+    PADDLEOCR_AVAILABLE = True
+except ImportError:
+    PADDLEOCR_AVAILABLE = False
+
 logger = setup_logger("pdf_parser")
 
 
@@ -89,6 +96,16 @@ class PDFParser:
         else:
             self.markitdown_parser = None
             logger.warning("⚠️ MarkItDown не установлен, парсер будет недоступен")
+        
+        # PaddleOCR парсер
+        if PADDLEOCR_AVAILABLE:
+            self.paddleocr_parser = PaddleOCRParser(
+                use_server_model=True,  # Используем server модель для высокой точности
+                lang='en'  # Поддерживаем английский язык
+            )
+        else:
+            self.paddleocr_parser = None
+            logger.warning("⚠️ PaddleOCR не установлен, парсер будет недоступен")
 
         # Директория для скриншотов ячеек и OCR
         self.screenshots_dir = Path(app_settings.SCREENSHOTS_DIR)
@@ -113,6 +130,7 @@ class PDFParser:
         use_easyocr = opts.get("use_easyocr", True)
         use_spacing_analysis = opts.get("use_spacing_analysis", True)
         use_markitdown = opts.get("use_markitdown", True)
+        use_paddleocr = opts.get("use_paddleocr", True)
         pages_opt = str(opts.get("pages", "all"))
         check_rotations = opts.get("check_rotations", True)  # Новый параметр для контроля поворотов
         
@@ -295,7 +313,45 @@ class PDFParser:
         elif use_markitdown and self.markitdown_parser is None:
             logger.warning("MarkItDown Parser запрошен, но не доступен (модуль не установлен)")
 
-        # 5) Дополнительные методы парсинга
+        # 5) PaddleOCR парсер (работает с изображениями страниц)
+        if use_paddleocr and self.paddleocr_parser is not None:
+            logger.info("🔄 PaddleOCR PP-OCRv5 парсинг")
+            try:
+                # Конвертируем PDF страницы в изображения для PaddleOCR
+                images = convert_from_path(
+                    str(file_path), 
+                    dpi=self.settings["dpi"],
+                    first_page=pages_info["first_page"],
+                    last_page=pages_info["last_page"]
+                )
+                
+                for page_idx, image in enumerate(images, start=pages_info["first_page"]):
+                    # Сохраняем изображение во временный файл
+                    temp_image_path = self.temp_dir / f"paddleocr_page_{page_idx}.png"
+                    image.save(temp_image_path)
+                    
+                    # Обрабатываем изображение через PaddleOCR
+                    paddleocr_tables = self.paddleocr_parser.extract_tables(str(temp_image_path))
+                    
+                    for pt in paddleocr_tables:
+                        final_tables.append({
+                            "data": pt["data"],
+                            "sheet_name": f"{pt['sheet_name']}_page_{page_idx}",
+                            "source": pt["source"],
+                            "rotation": 0,  # PaddleOCR обрабатывает изображения напрямую
+                            "cleaning_method": pt.get("cleaning_method", "paddleocr_pp-ocrv5")
+                        })
+                        logger.info("✅ %s → %d×%d", pt["sheet_name"], *pt["data"].shape)
+                    
+                    # Удаляем временный файл
+                    temp_image_path.unlink(missing_ok=True)
+                    
+            except Exception as e:
+                logger.warning("PaddleOCR PP-OCRv5 failed: %s", e)
+        elif use_paddleocr and self.paddleocr_parser is None:
+            logger.warning("PaddleOCR Parser запрошен, но не доступен (модуль не установлен)")
+
+        # 6) Дополнительные методы парсинга
         if (use_text_structure or use_spacing or use_easyocr or use_spacing_analysis):
             logger.info("🔍 Пробуем дополнительные методы парсинга")
             images = convert_from_path(

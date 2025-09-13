@@ -33,3 +33,6 @@ layoutparser[layout-model]>=0.3.4
 
 # --- MarkItDown для конвертации файлов в Markdown ---
 markitdown>=0.0.1a0
+
+# --- PaddleOCR PP-OCRv5 для распознавания текста ---
+paddleocr>=2.8.0

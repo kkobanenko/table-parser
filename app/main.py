@@ -45,6 +45,8 @@ def main() -> None:
                                           help="Анализ выравнивания текста для определения колонок")
         use_markitdown = st.checkbox("Использовать MarkItDown Parser", value=False,
                                     help="Конвертация файлов в Markdown с сохранением структуры таблиц")
+        use_paddleocr = st.checkbox("Использовать PaddleOCR PP-OCRv5", value=False,
+                                   help="Распознавание текста с помощью PaddleOCR PP-OCRv5 (высокая точность)")
         
         # Общие настройки
         st.subheader("⚙️ Общие настройки")
@@ -117,6 +119,7 @@ def main() -> None:
         "use_easyocr": use_easyocr,
         "use_spacing_analysis": use_spacing_analysis,
         "use_markitdown": use_markitdown,
+        "use_paddleocr": use_paddleocr,
         "check_rotations": check_rotations,
         "pages": pages
     }
