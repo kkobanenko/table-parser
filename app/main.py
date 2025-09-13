@@ -21,43 +21,48 @@ def main() -> None:
         
         # Векторные методы
         st.subheader("🔍 Векторные методы")
-        use_camelot = st.checkbox("Использовать Camelot", value=True, 
+        use_camelot = st.checkbox("Использовать Camelot", value=False, 
                                 help="Извлечение таблиц на основе векторных данных PDF")
-        use_tabula = st.checkbox("Использовать Tabula", value=True,
+        use_tabula = st.checkbox("Использовать Tabula", value=False,
                                help="Извлечение таблиц с помощью Java-библиотеки")
         
         # OCR методы
         st.subheader("📝 OCR методы")
-        use_ocr = st.checkbox("Использовать OCR", value=True,
+        use_ocr = st.checkbox("Использовать OCR", value=False,
                              help="Распознавание текста с помощью Tesseract")
-        use_cell = st.checkbox("Использовать Cell-segmentation", value=True,
+        use_cell = st.checkbox("Использовать Cell-segmentation", value=False,
                               help="Поиск границ ячеек с помощью компьютерного зрения")
         
         # Новые методы парсинга
         st.subheader("🚀 Новые методы")
-        use_text_structure = st.checkbox("Использовать Text Structure Parser", value=True,
+        use_text_structure = st.checkbox("Использовать Text Structure Parser", value=False,
                                         help="Анализ структуры текста для определения таблиц")
-        use_spacing = st.checkbox("Использовать Spacing Parser", value=True,
+        use_spacing = st.checkbox("Использовать Spacing Parser", value=False,
                                  help="Анализ пробелов между словами")
-        use_easyocr = st.checkbox("Использовать EasyOCR Parser", value=True,
+        use_easyocr = st.checkbox("Использовать EasyOCR Parser", value=False,
                                  help="Распознавание текста с координатами с помощью EasyOCR")
-        use_spacing_analysis = st.checkbox("Использовать Spacing Analysis Parser", value=True,
+        use_spacing_analysis = st.checkbox("Использовать Spacing Analysis Parser", value=False,
                                           help="Анализ выравнивания текста для определения колонок")
+        use_markitdown = st.checkbox("Использовать MarkItDown Parser", value=False,
+                                    help="Конвертация файлов в Markdown с сохранением структуры таблиц")
         
         # Общие настройки
         st.subheader("⚙️ Общие настройки")
-        check_rotations = st.checkbox("Исследовать повороты документа", value=True, 
+        check_rotations = st.checkbox("Исследовать повороты документа", value=False, 
                                     help="Если отключено, документ обрабатывается только в исходной ориентации")
 
         st.subheader("📄 Страницы для обработки")
         pages_option = st.radio(
             "Выберите страницы",
             options=["Все", "Интервал", "Конкретные страницы"],
-            index=0,
+            index=None,
             help="Выберите способ указания страниц для обработки"
         )
         
-        if pages_option == "Все":
+        if pages_option is None:
+            pages = "all"  # Значение по умолчанию
+            st.info("📋 Выберите способ указания страниц")
+        elif pages_option == "Все":
             pages = "all"
             st.info("📋 Будут обработаны все страницы документа")
         elif pages_option == "Интервал":
@@ -111,6 +116,7 @@ def main() -> None:
         "use_spacing": use_spacing,
         "use_easyocr": use_easyocr,
         "use_spacing_analysis": use_spacing_analysis,
+        "use_markitdown": use_markitdown,
         "check_rotations": check_rotations,
         "pages": pages
     }

@@ -30,3 +30,6 @@ mypy>=1.8
 scikit-learn>=1.3
 scipy>=1.11
 layoutparser[layout-model]>=0.3.4
+
+# --- MarkItDown для конвертации файлов в Markdown ---
+markitdown>=0.0.1a0

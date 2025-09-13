@@ -31,6 +31,13 @@ except ImportError:
 
 from parsers.spacing_analysis_parser import SpacingAnalysisParser
 
+# Условный импорт MarkItDown парсера
+try:
+    from parsers.markitdown_parser import MarkItDownParser
+    MARKITDOWN_AVAILABLE = True
+except ImportError:
+    MARKITDOWN_AVAILABLE = False
+
 logger = setup_logger("pdf_parser")
 
 
@@ -75,6 +82,13 @@ class PDFParser:
             ocr_psm=self.settings.get("ocr", {}).get("psm", 6),
             ocr_lang=app_settings.OCR_LANGUAGES
         )
+        
+        # MarkItDown парсер
+        if MARKITDOWN_AVAILABLE:
+            self.markitdown_parser = MarkItDownParser(enable_plugins=False)
+        else:
+            self.markitdown_parser = None
+            logger.warning("⚠️ MarkItDown не установлен, парсер будет недоступен")
 
         # Директория для скриншотов ячеек и OCR
         self.screenshots_dir = Path(app_settings.SCREENSHOTS_DIR)
@@ -98,6 +112,7 @@ class PDFParser:
         use_spacing = opts.get("use_spacing", True)
         use_easyocr = opts.get("use_easyocr", True)
         use_spacing_analysis = opts.get("use_spacing_analysis", True)
+        use_markitdown = opts.get("use_markitdown", True)
         pages_opt = str(opts.get("pages", "all"))
         check_rotations = opts.get("check_rotations", True)  # Новый параметр для контроля поворотов
         
@@ -261,7 +276,26 @@ class PDFParser:
                         })
                         logger.info("✅ %s → %d×%d", sheet, rows, cols)
 
-        # 4) Дополнительные методы парсинга
+        # 4) MarkItDown парсер (работает с оригинальным PDF файлом)
+        if use_markitdown and self.markitdown_parser is not None:
+            logger.info("🔄 MarkItDown парсинг")
+            try:
+                markitdown_tables = self.markitdown_parser.extract_tables(str(file_path))
+                for mt in markitdown_tables:
+                    final_tables.append({
+                        "data": mt["data"],
+                        "sheet_name": mt["sheet_name"],
+                        "source": mt["source"],
+                        "rotation": 0,  # MarkItDown работает с оригинальным файлом
+                        "cleaning_method": mt.get("cleaning_method", "markdown_parsing")
+                    })
+                    logger.info("✅ %s → %d×%d", mt["sheet_name"], *mt["data"].shape)
+            except Exception as e:
+                logger.warning("MarkItDown failed: %s", e)
+        elif use_markitdown and self.markitdown_parser is None:
+            logger.warning("MarkItDown Parser запрошен, но не доступен (модуль не установлен)")
+
+        # 5) Дополнительные методы парсинга
         if (use_text_structure or use_spacing or use_easyocr or use_spacing_analysis):
             logger.info("🔍 Пробуем дополнительные методы парсинга")
             images = convert_from_path(
