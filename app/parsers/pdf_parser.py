@@ -9,13 +9,27 @@ import pdfplumber
 import tabula
 import pytesseract
 from pdf2image import convert_from_path
-from PyPDF2 import PdfReader, PdfWriter
+try:
+    from PyPDF2 import PdfReader, PdfWriter
+except ImportError:
+    from pypdf import PdfReader, PdfWriter
 
 from config.pdf_parser_settings import PDFParserSettings
 from config.settings import settings as app_settings
 from utils.logger import setup_logger
 from utils.ocr_tuner import DEFAULT_OCR_CONFIGS, OCRTuner
 from parsers.cell_table_parser import CellTableParser
+from parsers.text_structure_parser import TextStructureParser
+from parsers.spacing_parser import SpacingParser
+
+# Условный импорт EasyOCR парсера
+try:
+    from parsers.easyocr_parser import EasyOCRParser
+    EASYOCR_AVAILABLE = True
+except ImportError:
+    EASYOCR_AVAILABLE = False
+
+from parsers.spacing_analysis_parser import SpacingAnalysisParser
 
 logger = setup_logger("pdf_parser")
 
@@ -31,7 +45,7 @@ class PDFParser:
         self.settings.setdefault("dpi", 300)
         self.rotation_angles = self.settings.get("rotation_angles", [0, 90, 180, 270])
 
-        # OCR-тюнер и cell-сегментатор
+        # OCR-тюнер и парсеры
         self.tuner = OCRTuner(DEFAULT_OCR_CONFIGS)
         self.cell_parser = CellTableParser(
             ocr_psm=self.settings.get("ocr", {}).get("psm", 6),
@@ -39,10 +53,36 @@ class PDFParser:
             clahe=True,
             denoise=True
         )
+        self.text_structure_parser = TextStructureParser(
+            ocr_psm=self.settings.get("ocr", {}).get("psm", 6),
+            ocr_lang=app_settings.OCR_LANGUAGES
+        )
+        self.spacing_parser = SpacingParser(
+            ocr_psm=self.settings.get("ocr", {}).get("psm", 6),
+            ocr_lang=app_settings.OCR_LANGUAGES
+        )
+        
+        # Новые парсеры для улучшенного анализа таблиц
+        if EASYOCR_AVAILABLE:
+            self.easyocr_parser = EasyOCRParser(
+                languages=['en', 'ru'],
+                gpu=False  # Используем CPU для совместимости
+            )
+        else:
+            self.easyocr_parser = None
+            logger.warning("⚠️ EasyOCR не установлен, парсер будет недоступен")
+        self.spacing_analysis_parser = SpacingAnalysisParser(
+            ocr_psm=self.settings.get("ocr", {}).get("psm", 6),
+            ocr_lang=app_settings.OCR_LANGUAGES
+        )
 
         # Директория для скриншотов ячеек и OCR
         self.screenshots_dir = Path(app_settings.SCREENSHOTS_DIR)
         self.screenshots_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Директория для промежуточных файлов (повороты, очищенные изображения)
+        self.temp_dir = Path("temp")
+        self.temp_dir.mkdir(exist_ok=True)
 
     def extract_tables(
         self,
@@ -54,14 +94,25 @@ class PDFParser:
         use_tabula = opts.get("use_tabula", True)
         use_ocr = opts.get("use_ocr", True)
         use_cell = opts.get("use_cell_table", True)
+        use_text_structure = opts.get("use_text_structure", True)
+        use_spacing = opts.get("use_spacing", True)
+        use_easyocr = opts.get("use_easyocr", True)
+        use_spacing_analysis = opts.get("use_spacing_analysis", True)
         pages_opt = str(opts.get("pages", "all"))
+        check_rotations = opts.get("check_rotations", True)  # Новый параметр для контроля поворотов
+        
+        # Парсим параметр pages для разных методов
+        pages_info = self._parse_pages_option(pages_opt)
 
         file_name = file_path.name
         logger.info("📂 Начало обработки PDF: %s", file_name)
         final_tables: List[Dict[str, Any]] = []
 
+        # Определяем углы для обработки
+        angles_to_process = [0] if not check_rotations else self.rotation_angles
+        
         # 1) Векторные методы
-        for angle in self.rotation_angles:
+        for angle in angles_to_process:
             rotated_pdf = self._rotate_pdf(file_path, angle) if angle else file_path
             logger.info("🔄 Vector @ %d°", angle)
 
@@ -70,7 +121,7 @@ class PDFParser:
                 try:
                     tables = camelot.read_pdf(
                         str(rotated_pdf),
-                        pages=pages_opt,
+                        pages=pages_info["camelot_tabula"],
                         flavor=self.settings.get("camelot_flavor", "stream"),
                         strip_text="\n"
                     )
@@ -93,7 +144,7 @@ class PDFParser:
                 try:
                     dfs = tabula.read_pdf(
                         str(rotated_pdf),
-                        pages=pages_opt,
+                        pages=pages_info["camelot_tabula"],
                         multiple_tables=True,
                         guess=self.settings.get("guess", True)
                     )
@@ -117,10 +168,15 @@ class PDFParser:
 
         # 2) OCR-­тюнинг
         if use_ocr:
-            logger.info("🔍 OCR all configs on all angles")
-            images = convert_from_path(str(file_path), dpi=self.settings["dpi"])
+            logger.info("🔍 OCR all configs on angles: %s", angles_to_process)
+            images = convert_from_path(
+                str(file_path), 
+                dpi=self.settings["dpi"],
+                first_page=pages_info["first_page"],
+                last_page=pages_info["last_page"]
+            )
             for page_idx, img in enumerate(images, start=1):
-                for angle in self.rotation_angles:
+                for angle in angles_to_process:
                     # поворот и сохранение
                     rotated = img.rotate(angle, expand=True)
                     # tuned table extraction
@@ -142,6 +198,11 @@ class PDFParser:
                     ocr_png = self.screenshots_dir / f"{Path(file_name).stem}_fullocr_p{page_idx}_r{angle}.png"
                     rotated.save(ocr_png)
                     logger.info("💾 FullOCR image saved: %s", ocr_png)
+                    
+                    # Сохраняем повернутое изображение в temp для анализа
+                    temp_rotated = self.temp_dir / f"{Path(file_name).stem}_rotated_p{page_idx}_r{angle}.png"
+                    rotated.save(temp_rotated)
+                    logger.info("💾 Rotated image saved to temp: %s", temp_rotated)
                     raw_text = pytesseract.image_to_string(
                         rotated,
                         lang=app_settings.OCR_LANGUAGES,
@@ -160,15 +221,25 @@ class PDFParser:
 
         # 3) CellTableParser
         if use_cell:
-            logger.info("🔎 CellTableParser on all angles")
-            images = convert_from_path(str(file_path), dpi=self.settings["dpi"])
+            logger.info("🔎 CellTableParser on angles: %s", angles_to_process)
+            images = convert_from_path(
+                str(file_path), 
+                dpi=self.settings["dpi"],
+                first_page=pages_info["first_page"],
+                last_page=pages_info["last_page"]
+            )
             stem = Path(file_name).stem
             for page_idx, img in enumerate(images, start=1):
-                for angle in self.rotation_angles:
+                for angle in angles_to_process:
                     rotated = img.rotate(angle, expand=True)
                     img_path = self.screenshots_dir / f"{stem}_cells_p{page_idx}_r{angle}.png"
                     rotated.save(img_path)
                     logger.info("💾 Cell image saved: %s", img_path)
+                    
+                    # Сохраняем повернутое изображение в temp для анализа
+                    temp_cell = self.temp_dir / f"{stem}_cell_analysis_p{page_idx}_r{angle}.png"
+                    rotated.save(temp_cell)
+                    logger.info("💾 Cell analysis image saved to temp: %s", temp_cell)
 
                     cell_tables = self.cell_parser.extract_tables(str(img_path))
                     for ct in cell_tables:
@@ -190,8 +261,165 @@ class PDFParser:
                         })
                         logger.info("✅ %s → %d×%d", sheet, rows, cols)
 
+        # 4) Дополнительные методы парсинга
+        if (use_text_structure or use_spacing or use_easyocr or use_spacing_analysis):
+            logger.info("🔍 Пробуем дополнительные методы парсинга")
+            images = convert_from_path(
+                str(file_path), 
+                dpi=self.settings["dpi"],
+                first_page=pages_info["first_page"],
+                last_page=pages_info["last_page"]
+            )
+            stem = Path(file_name).stem
+            
+            for page_idx, img in enumerate(images, start=1):
+                for angle in angles_to_process:
+                    rotated = img.rotate(angle, expand=True)
+                    img_path = self.screenshots_dir / f"{stem}_advanced_p{page_idx}_r{angle}.png"
+                    rotated.save(img_path)
+                    
+                    # Сохраняем повернутое изображение в temp для анализа
+                    temp_advanced = self.temp_dir / f"{stem}_advanced_analysis_p{page_idx}_r{angle}.png"
+                    rotated.save(temp_advanced)
+                    logger.info("💾 Advanced analysis image saved to temp: %s", temp_advanced)
+                    
+                    # Text Structure Parser
+                    if use_text_structure:
+                        try:
+                            text_tables = self.text_structure_parser.extract_tables(str(img_path))
+                            for tt in text_tables:
+                                sheet = f"{tt['sheet_name']}_p{page_idx}_r{angle}"
+                                final_tables.append({
+                                    "data": tt["data"],
+                                    "sheet_name": sheet,
+                                    "source": tt["source"],
+                                    "rotation": angle,
+                                    "cleaning_method": tt.get("cleaning_method", "unknown")
+                                })
+                                logger.info("✅ %s → %d×%d", sheet, *tt["data"].shape)
+                        except Exception as e:
+                            logger.warning("TextStructureParser failed: %s", e)
+                    
+                    # Spacing Parser
+                    if use_spacing:
+                        try:
+                            spacing_tables = self.spacing_parser.extract_tables(str(img_path))
+                            for st in spacing_tables:
+                                sheet = f"{st['sheet_name']}_p{page_idx}_r{angle}"
+                                final_tables.append({
+                                    "data": st["data"],
+                                    "sheet_name": sheet,
+                                    "source": st["source"],
+                                    "rotation": angle,
+                                    "cleaning_method": st.get("cleaning_method", "unknown")
+                                })
+                                logger.info("✅ %s → %d×%d", sheet, *st["data"].shape)
+                        except Exception as e:
+                            logger.warning("SpacingParser failed: %s", e)
+                    
+                    # EasyOCR Parser
+                    if use_easyocr and self.easyocr_parser is not None:
+                        try:
+                            easyocr_tables = self.easyocr_parser.extract_tables(str(img_path))
+                            for et in easyocr_tables:
+                                sheet = f"{et['sheet_name']}_p{page_idx}_r{angle}"
+                                final_tables.append({
+                                    "data": et["data"],
+                                    "sheet_name": sheet,
+                                    "source": et["source"],
+                                    "rotation": angle,
+                                    "cleaning_method": et.get("cleaning_method", "unknown")
+                                })
+                                logger.info("✅ %s → %d×%d", sheet, *et["data"].shape)
+                        except Exception as e:
+                            logger.warning("EasyOCRParser failed: %s", e)
+                    elif use_easyocr and self.easyocr_parser is None:
+                        logger.warning("EasyOCR Parser запрошен, но не доступен (модуль не установлен)")
+                    
+                    # Spacing Analysis Parser
+                    if use_spacing_analysis:
+                        try:
+                            spacing_analysis_tables = self.spacing_analysis_parser.extract_tables(str(img_path))
+                            for sat in spacing_analysis_tables:
+                                sheet = f"{sat['sheet_name']}_p{page_idx}_r{angle}"
+                                final_tables.append({
+                                    "data": sat["data"],
+                                    "sheet_name": sheet,
+                                    "source": sat["source"],
+                                    "rotation": angle,
+                                    "cleaning_method": sat.get("cleaning_method", "unknown")
+                                })
+                                logger.info("✅ %s → %d×%d", sheet, *sat["data"].shape)
+                        except Exception as e:
+                            logger.warning("SpacingAnalysisParser failed: %s", e)
+
         logger.info("🏁 Полная обработка завершена, всего таблиц: %d", len(final_tables))
         return final_tables
+
+    def _parse_pages_option(self, pages_opt: str) -> Dict[str, Any]:
+        """
+        Парсит параметр pages для разных методов парсинга.
+        
+        Args:
+            pages_opt: Строка с номерами страниц (например: "all", "1", "1-3", "1,3,5")
+            
+        Returns:
+            Словарь с параметрами для разных методов
+        """
+        pages_info = {
+            "camelot_tabula": pages_opt,  # Для Camelot и Tabula
+            "first_page": None,           # Для pdf2image
+            "last_page": None,            # Для pdf2image
+            "page_numbers": []            # Список номеров страниц
+        }
+        
+        if pages_opt.lower() == "all":
+            # Для всех страниц
+            pages_info["camelot_tabula"] = "all"
+            pages_info["first_page"] = None
+            pages_info["last_page"] = None
+            pages_info["page_numbers"] = []
+        else:
+            # Парсим конкретные страницы
+            try:
+                if "-" in pages_opt and "," not in pages_opt:
+                    # Интервал страниц (например: "1-3")
+                    start, end = pages_opt.split("-", 1)
+                    start_page = int(start.strip())
+                    end_page = int(end.strip())
+                    
+                    pages_info["camelot_tabula"] = pages_opt
+                    pages_info["first_page"] = start_page
+                    pages_info["last_page"] = end_page
+                    pages_info["page_numbers"] = list(range(start_page, end_page + 1))
+                    
+                elif "," in pages_opt:
+                    # Конкретные страницы через запятую (например: "1,3,5")
+                    page_list = [int(p.strip()) for p in pages_opt.split(",")]
+                    
+                    pages_info["camelot_tabula"] = pages_opt
+                    pages_info["first_page"] = min(page_list)
+                    pages_info["last_page"] = max(page_list)
+                    pages_info["page_numbers"] = page_list
+                    
+                else:
+                    # Одна страница (например: "1")
+                    page_num = int(pages_opt.strip())
+                    
+                    pages_info["camelot_tabula"] = pages_opt
+                    pages_info["first_page"] = page_num
+                    pages_info["last_page"] = page_num
+                    pages_info["page_numbers"] = [page_num]
+                    
+            except (ValueError, IndexError) as e:
+                logger.warning("⚠️ Некорректный формат страниц '%s': %s. Используем страницу 1", pages_opt, e)
+                pages_info["camelot_tabula"] = "1"
+                pages_info["first_page"] = 1
+                pages_info["last_page"] = 1
+                pages_info["page_numbers"] = [1]
+        
+        logger.info("📄 Параметры страниц: %s", pages_info)
+        return pages_info
 
     def _rotate_pdf(self, file_path: Path, angle: int) -> Path:
         """

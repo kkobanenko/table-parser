@@ -1,0 +1,24 @@
+{
+  "line_margin": 2.3,
+  "char_margin": 2.2,
+  "line_overlap": 0.5,
+  "vertical_strategy": "lines",
+  "horizontal_strategy": "lines",
+  "rotation_angles": [
+    0,
+    180,
+    270,
+    90
+  ],
+  "pages": "all",
+  "guess": true,
+  "camelot_flavor": "stream",
+  "dpi": 600,
+  "ocr": {
+    "rotate_auto": true,
+    "enhance_contrast": true,
+    "denoise": true,
+    "psm": 6
+  },
+  "cache_dir": "/tmp/pdfparser_cache"
+}

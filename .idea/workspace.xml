@@ -1,0 +1,246 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="c8bb0ae3-9dce-4d57-924b-208dd0ec00d1" name="Changes" comment="testing CI/CD: pushing .gitlab-ci.yml">
+      <change afterPath="$PROJECT_DIR$/.cursor/rules/1.mdc" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.env" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/inspectionProfiles/profiles_settings.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/table-parser.iml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/logs/main_20250727.log" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/logs/main_20250728.log" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/logs/pdf_parser_20250727.log" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/logs/table_processor_20250727.log" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/config/settings.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/config/settings.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/parsers/cell_table_parser.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/parsers/cell_table_parser.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/utils/ocr_tuner.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/utils/ocr_tuner.py" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Python Script" />
+      </list>
+    </option>
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_BRANCH_BY_REPOSITORY">
+      <map>
+        <entry key="$PROJECT_DIR$" value="dev_w_cursor_OCR_improvements" />
+      </map>
+    </option>
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+    <option name="RESET_MODE" value="SOFT" />
+  </component>
+  <component name="HighlightingSettingsPerFile">
+    <setting file="file://$PROJECT_DIR$/app/config/pdf_parser_config.json" root0="FORCE_HIGHLIGHTING" />
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 8
+}</component>
+  <component name="ProjectId" id="30Um7kTgtGjARkFyAe2AFMzmQrE" />
+  <component name="ProjectLevelVcsManager" settingsEditedManually="true" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;Python.main.executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;dev__w__cursor__OCR__improvements&quot;,
+    &quot;last_opened_file_path&quot;: &quot;/home/kobanenkokn/table-parser&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  }
+}</component>
+  <component name="ReadonlyStatusHandler">
+    <option name="SHOW_DIALOG" value="false" />
+  </component>
+  <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$" />
+    </key>
+  </component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-js-predefined-d6986cc7102b-e768b9ed790e-JavaScript-PY-243.21565.199" />
+        <option value="bundled-python-sdk-cab1f2013843-4ae2d6a61b08-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-243.21565.199" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="c8bb0ae3-9dce-4d57-924b-208dd0ec00d1" name="Changes" comment="" />
+      <created>1753690360353</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1753690360353</updated>
+      <workItem from="1753690361548" duration="4000" />
+      <workItem from="1753690646266" duration="8501000" />
+      <workItem from="1753710699491" duration="5444000" />
+      <workItem from="1753780043711" duration="598000" />
+      <workItem from="1753783857495" duration="9818000" />
+      <workItem from="1753820216305" duration="6829000" />
+      <workItem from="1754028167588" duration="599000" />
+      <workItem from="1754118032816" duration="1272000" />
+      <workItem from="1754234240839" duration="3557000" />
+      <workItem from="1754289201158" duration="6568000" />
+      <workItem from="1754305195209" duration="598000" />
+      <workItem from="1754310439792" duration="637000" />
+      <workItem from="1754312478122" duration="1602000" />
+      <workItem from="1754389114888" duration="600000" />
+      <workItem from="1754403161901" duration="715000" />
+      <workItem from="1754464288701" duration="18983000" />
+      <workItem from="1754549018364" duration="5746000" />
+      <workItem from="1754638224191" duration="2505000" />
+      <workItem from="1754999876228" duration="600000" />
+      <workItem from="1755075131486" duration="14000" />
+      <workItem from="1755443298818" duration="5781000" />
+      <workItem from="1755587391428" duration="2956000" />
+      <workItem from="1755672683182" duration="599000" />
+      <workItem from="1755763906916" duration="657000" />
+      <workItem from="1755850135362" duration="3938000" />
+      <workItem from="1756111378747" duration="1208000" />
+      <workItem from="1756155065146" duration="1201000" />
+      <workItem from="1756196001749" duration="599000" />
+      <workItem from="1756209905680" duration="1379000" />
+      <workItem from="1756296774217" duration="1222000" />
+      <workItem from="1756305689564" duration="599000" />
+      <workItem from="1756366934471" duration="597000" />
+      <workItem from="1756383676499" duration="769000" />
+      <workItem from="1756390557870" duration="1199000" />
+      <workItem from="1756710295719" duration="1206000" />
+      <workItem from="1756728814222" duration="1051000" />
+      <workItem from="1756814383519" duration="600000" />
+      <workItem from="1756910857897" duration="1201000" />
+      <workItem from="1757048833403" duration="599000" />
+      <workItem from="1757251252711" duration="3974000" />
+    </task>
+    <task id="LOCAL-00001" summary=" working">
+      <option name="closed" value="true" />
+      <created>1753696803168</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1753696803168</updated>
+    </task>
+    <task id="LOCAL-00002" summary="Выведены параметры   парсера pdf, добавлено больше параметров стандартизации колонок таблиц, добавлены углы поворота  pdf">
+      <option name="closed" value="true" />
+      <created>1753791135064</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1753791135064</updated>
+    </task>
+    <task id="LOCAL-00003" summary="pass">
+      <option name="closed" value="true" />
+      <created>1753797915368</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1753797915368</updated>
+    </task>
+    <task id="LOCAL-00004" summary="pass">
+      <option name="closed" value="true" />
+      <created>1753798491612</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1753798491612</updated>
+    </task>
+    <task id="LOCAL-00005" summary="yet the best version">
+      <option name="closed" value="true" />
+      <created>1753823343173</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1753823343173</updated>
+    </task>
+    <task id="LOCAL-00006" summary="version 2: Camelot, Tabula + OCR с перебором некоторых настроек и записью всех результатов в xlsx. Норм с векторным pdf и плохо для OCR">
+      <option name="closed" value="true" />
+      <created>1754482152186</created>
+      <option name="number" value="00006" />
+      <option name="presentableId" value="LOCAL-00006" />
+      <option name="project" value="LOCAL" />
+      <updated>1754482152186</updated>
+    </task>
+    <task id="LOCAL-00007" summary="version 2: Camelot, Tabula + OCR с перебором некоторых настроек и записью всех результатов в xlsx. Норм с векторным pdf и плохо для OCR">
+      <option name="closed" value="true" />
+      <created>1754482180610</created>
+      <option name="number" value="00007" />
+      <option name="presentableId" value="LOCAL-00007" />
+      <option name="project" value="LOCAL" />
+      <updated>1754482180610</updated>
+    </task>
+    <task id="LOCAL-00008" summary="testing CI/CD: pushing .gitlab-ci.yml">
+      <option name="closed" value="true" />
+      <created>1755527997357</created>
+      <option name="number" value="00008" />
+      <option name="presentableId" value="LOCAL-00008" />
+      <option name="project" value="LOCAL" />
+      <updated>1755527997357</updated>
+    </task>
+    <task id="LOCAL-00009" summary="testing CI/CD: pushing .gitlab-ci.yml">
+      <option name="closed" value="true" />
+      <created>1755528181546</created>
+      <option name="number" value="00009" />
+      <option name="presentableId" value="LOCAL-00009" />
+      <option name="project" value="LOCAL" />
+      <updated>1755528181547</updated>
+    </task>
+    <option name="localTasksCounter" value="10" />
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State>
+              <option name="GRAPH_OPTIONS">
+                <list>
+                  <option value="Base" />
+                  <option value="Standard" />
+                </list>
+              </option>
+            </State>
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value=" working" />
+    <MESSAGE value="Выведены параметры   парсера pdf, добавлено больше параметров стандартизации колонок таблиц, добавлены углы поворота  pdf" />
+    <MESSAGE value="pass" />
+    <MESSAGE value="yet the best version" />
+    <MESSAGE value="version 2: Camelot, Tabula + OCR с перебором некоторых настроек и записью всех результатов в xlsx. Норм с векторным pdf и плохо для OCR" />
+    <MESSAGE value="testing CI/CD: pushing .gitlab-ci.yml" />
+    <option name="LAST_COMMIT_MESSAGE" value="testing CI/CD: pushing .gitlab-ci.yml" />
+  </component>
+  <component name="com.intellij.coverage.CoverageDataManagerImpl">
+    <SUITE FILE_PATH="coverage/table_parser$main.coverage" NAME="main Coverage Results" MODIFIED="1755518065902" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/app" />
+  </component>
+</project>

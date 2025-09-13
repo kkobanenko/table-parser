@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 import pandas as pd
+import pytesseract
 from typing import List, Dict, Tuple, Any
 from utils.logger import setup_logger
 
@@ -77,6 +78,13 @@ class CellTableParser:
                 "sheet_name": "CellTable",
                 "source": "cell_table"
             })
+        
+        # Если не найдены таблицы с линиями, пробуем альтернативный метод
+        if not tables:
+            logger.info("🔍 Пробуем альтернативный метод поиска таблиц без линий")
+            alt_tables = self._extract_table_without_lines(img)
+            tables.extend(alt_tables)
+        
         return tables
 
     def _detect_grid(self, bin_img: np.ndarray, cfg: Dict[str, Any]
@@ -172,24 +180,27 @@ class CellTableParser:
 
     def _generate_configs(self) -> List[Dict[str, Any]]:
         """
-        Генерирует до ~144 конфигураций:
-        - length ∈ {50,100,150}
-        - hough_thresh ∈ {50,100,150}
-        - min_len ∈ {10,20}
-        - max_gap ∈ {10,20}
-        - cluster_dist ∈ {10,20}
+        Генерирует оптимизированные конфигурации для поиска таблиц (максимум 10).
+        Выбраны наиболее эффективные комбинации параметров.
         """
-        configs: List[Dict[str, Any]] = []
-        for length in (50, 100, 150):
-            for hough_thresh in (50, 100, 150):
-                for min_len in (10, 20):
-                    for max_gap in (10, 20):
-                        for cluster_dist in (10, 20):
-                            configs.append({
-                                'length': length,
-                                'hough_thresh': hough_thresh,
-                                'min_len': min_len,
-                                'max_gap': max_gap,
-                                'cluster_dist': cluster_dist
-                            })
+        configs: List[Dict[str, Any]] = [
+            # Базовые конфигурации для таблиц с четкими линиями
+            {'length': 100, 'hough_thresh': 100, 'min_len': 20, 'max_gap': 20, 'cluster_dist': 20},
+            {'length': 150, 'hough_thresh': 150, 'min_len': 20, 'max_gap': 20, 'cluster_dist': 20},
+            {'length': 50, 'hough_thresh': 50, 'min_len': 10, 'max_gap': 10, 'cluster_dist': 10},
+            
+            # Чувствительные конфигурации для слабых линий
+            {'length': 30, 'hough_thresh': 30, 'min_len': 5, 'max_gap': 5, 'cluster_dist': 5},
+            {'length': 50, 'hough_thresh': 30, 'min_len': 10, 'max_gap': 5, 'cluster_dist': 10},
+            
+            # Конфигурации для больших таблиц
+            {'length': 200, 'hough_thresh': 200, 'min_len': 30, 'max_gap': 30, 'cluster_dist': 30},
+            {'length': 150, 'hough_thresh': 100, 'min_len': 20, 'max_gap': 30, 'cluster_dist': 20},
+            
+            # Смешанные конфигурации
+            {'length': 100, 'hough_thresh': 50, 'min_len': 15, 'max_gap': 15, 'cluster_dist': 15},
+            {'length': 75, 'hough_thresh': 75, 'min_len': 15, 'max_gap': 15, 'cluster_dist': 15},
+            {'length': 125, 'hough_thresh': 125, 'min_len': 25, 'max_gap': 25, 'cluster_dist': 25}
+        ]
+        
         return configs

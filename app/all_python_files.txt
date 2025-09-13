@@ -1,0 +1,1974 @@
+import streamlit as st
+import pandas as pd
+from datetime import datetime
+import time
+import os
+
+# Импорты из локальных модулей
+from config.settings import settings
+from processors.file_processor import FileProcessor
+from utils.file_handler import FileHandler
+from utils.error_handler import ErrorHandler
+from config.pdf_parser_settings import PDFParserSettings
+
+
+def main():
+    """
+    Главная функция Streamlit приложения
+    """
+    st.set_page_config(
+        page_title="Парсер медицинских таблиц",
+        page_icon="📊",
+        layout="wide"
+    )
+
+    # Заголовок приложения
+    st.title("🔬 Парсер медицинских таблиц")
+
+    # Sidebar с информацией
+    with st.sidebar:
+        st.header("🛠 Настройки")
+
+        # Секция PDF настроек
+        with st.expander("PDF Парсер"):
+            pdf_settings = PDFParserSettings.get_streamlit_settings_ui()
+
+        # Общие настройки
+        st.metric("Макс. размер файла", f"{settings.MAX_FILE_SIZE_MB} МБ")
+        st.metric("Макс. файлов за раз", settings.MAX_FILES_PER_BATCH)
+
+    # Основной контент
+    st.header("📤 Загрузка файлов")
+
+    # Загрузка файлов
+    uploaded_files = st.file_uploader(
+        "Выберите файлы для обработки",
+        type=['pdf', 'docx', 'csv', 'txt'],
+        accept_multiple_files=True
+    )
+
+    if uploaded_files:
+        # Валидация количества файлов
+        if len(uploaded_files) > settings.MAX_FILES_PER_BATCH:
+            st.error(f"Можно загрузить не более {settings.MAX_FILES_PER_BATCH} файлов")
+            return
+
+        # Прогресс-бар
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+
+        # Создание контейнеров для результатов
+        results_container = st.container()
+        download_container = st.container()
+
+        # Обработка файлов
+        file_processor = FileProcessor()
+        processed_files = []
+        errors = []
+
+        for idx, uploaded_file in enumerate(uploaded_files):
+            try:
+                # Обновление прогресса
+                progress = (idx + 1) / len(uploaded_files)
+                progress_bar.progress(progress)
+                status_text.text(f"Обработка: {uploaded_file.name} ({idx + 1}/{len(uploaded_files)})")
+
+                # Сохранение файла
+                temp_file_path = FileHandler.save_uploaded_file(uploaded_file)
+
+                # Обработка файла
+                result = file_processor.process_file(uploaded_file)
+                result['original_filename'] = uploaded_file.name
+                processed_files.append(result)
+
+            except Exception as e:
+                error_details = ErrorHandler.handle_error(e, {
+                    'filename': uploaded_file.name
+                })
+                errors.append(error_details)
+
+        # Очистка статусов
+        progress_bar.empty()
+        status_text.empty()
+
+        # Отображение результатов
+        with results_container:
+            st.header("📊 Результаты обработки")
+
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("✅ Успешно обработано", len(processed_files))
+            with col2:
+                st.metric("❌ Ошибок", len(errors))
+            with col3:
+                st.metric("📄 Найдено таблиц",
+                          sum(result.get('tables_count', 0) for result in processed_files)
+                          )
+
+        # Кнопки скачивания
+        with download_container:
+            st.header("📥 Результаты")
+            for result in processed_files:
+                st.download_button(
+                    label=f"Скачать: {result['output_filename']}",
+                    data=result['data'],
+                    file_name=result['output_filename'],
+                    mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                )
+
+        # Показ ошибок
+        if errors:
+            with st.expander("⚠️ Детали ошибок"):
+                for error in errors:
+                    st.error(f"Файл: {error.get('context', {}).get('filename')}")
+                    st.json(error)
+
+
+def error_handler(func):
+    """
+    Декоратор для обработки ошибок в Streamlit
+    """
+
+    def wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except Exception as e:
+            st.error(f"Произошла ошибка: {e}")
+            ErrorHandler.handle_error(e)
+
+    return wrapper
+
+
+@error_handler
+def run():
+    main()
+
+
+if __name__ == "__main__":
+    run()from bs4 import BeautifulSoup
+import pandas as pd
+from typing import List, Dict
+import lxml.etree as ET
+from utils.logger import setup_logger
+
+logger = setup_logger('html_xml_parser')
+
+class HTMLXMLParser:
+    """Parser for HTML and XML files"""
+    
+    def extract_tables(self, file_path: str, file_type: str) -> List[Dict]:
+        """Extract tables from HTML or XML file"""
+        file_type = file_type.lower()
+        
+        if file_type in ['html', 'htm']:
+            return self._extract_from_html(file_path)
+        elif file_type == 'xml':
+            return self._extract_from_xml(file_path)
+        else:
+            raise ValueError(f"Unsupported file type: {file_type}")
+    
+    def _extract_from_html(self, file_path: str) -> List[Dict]:
+        """Extract tables from HTML"""
+        tables = []
+        
+        # Try different encodings
+        for encoding in ['utf-8', 'latin-1', 'cp1251']:
+            try:
+                with open(file_path, 'r', encoding=encoding) as f:
+                    content = f.read()
+                break
+            except:
+                continue
+        else:
+            logger.error("Could not decode HTML file")
+            return tables
+        
+        soup = BeautifulSoup(content, 'html.parser')
+        
+        # Find all tables
+        html_tables = soup.find_all('table')
+        
+        for idx, table in enumerate(html_tables):
+            try:
+                # Parse table to DataFrame
+                df = self._parse_html_table(table)
+                
+                if not df.empty and len(df) > 1:
+                    sheet_name = self._generate_sheet_name(df, idx)
+                    
+                    tables.append({
+                        'data': df,
+                        'sheet_name': sheet_name,
+                        'table_index': idx
+                    })
+                    
+            except Exception as e:
+                logger.error(f"Error parsing HTML table {idx}: {e}")
+        
+        # If no tables found, try to find table-like structures
+        if not tables:
+            tables.extend(self._find_div_tables(soup))
+        
+        return tables
+    
+    def _parse_html_table(self, table) -> pd.DataFrame:
+        """Parse HTML table to DataFrame"""
+        rows = []
+        headers = []
+        
+        # Extract headers from thead
+        thead = table.find('thead')
+        if thead:
+            header_rows = thead.find_all('tr')
+            if header_rows:
+                # Handle multi-row headers
+                for row in header_rows:
+                    row_headers = []
+                    for cell in row.find_all(['th', 'td']):
+                        colspan = int(cell.get('colspan', 1))
+                        cell_text = cell.get_text(strip=True)
+                        row_headers.extend([cell_text] * colspan)
+                    
+                    if not headers:
+                        headers = row_headers
+                    else:
+                        # Merge multi-row headers
+                        headers = [f"{h1} {h2}" if h2 else h1 
+                                 for h1, h2 in zip(headers, row_headers)]
+        
+        # If no thead, check first row
+        if not headers:
+            first_row = table.find('tr')
+            if first_row:
+                # Check if first row contains th elements
+                if first_row.find('th'):
+                    headers = [cell.get_text(strip=True) 
+                             for cell in first_row.find_all(['th', 'td'])]
+        
+        # Extract data rows
+        tbody = table.find('tbody') or table
+        data_rows = tbody.find_all('tr')
+        
+        # Skip header row if it's in tbody
+        start_idx = 1 if headers and not thead else 0
+        
+        for row in data_rows[start_idx:]:
+            row_data = []
+            for cell in row.find_all(['td', 'th']):
+                colspan = int(cell.get('colspan', 1))
+                cell_text = cell.get_text(strip=True)
+                row_data.extend([cell_text] * colspan)
+            
+            if row_data:  # Skip empty rows
+                rows.append(row_data)
+        
+        # Create DataFrame
+        if rows:
+            if headers:
+                # Ensure headers match data width
+                max_cols = max(len(row) for row in rows)
+                if len(headers) < max_cols:
+                    headers.extend([f'Column_{i}' for i in range(len(headers), max_cols)])
+                elif len(headers) > max_cols:
+                    headers = headers[:max_cols]
+                
+                df = pd.DataFrame(rows, columns=headers)
+            else:
+                df = pd.DataFrame(rows)
+        else:
+            df = pd.DataFrame()
+        
+        return df
+    
+    def _find_div_tables(self, soup) -> List[Dict]:
+        """Find table-like structures in divs"""
+        tables = []
+        
+        # Look for common table-like class names
+        table_classes = ['table', 'grid', 'data-table', 'price-list']
+        
+        for class_name in table_classes:
+            divs = soup.find_all('div', class_=lambda x: x and class_name in x)
+            
+            for idx, div in enumerate(divs):
+                # Try to extract structured data
+                rows = div.find_all('div', class_=lambda x: x and 'row' in x)
+                if len(rows) > 1:
+                    data = []
+                    for row in rows:
+                        cells = row.find_all(['div', 'span'])
+                        if cells:
+                            row_data = [cell.get_text(strip=True) for cell in cells]
+                            data.append(row_data)
+                    
+                    if data:
+                        df = pd.DataFrame(data)
+                        if not df.empty:
+                            tables.append({
+                                'data': df,
+                                'sheet_name': f'Div_Table_{idx + 1}',
+                                'source': 'div_structure'
+                            })
+        
+        return tables
+    
+    def _extract_from_xml(self, file_path: str) -> List[Dict]:
+        """Extract tables from XML"""
+        tables = []
+        
+        try:
+            tree = ET.parse(file_path)
+            root = tree.getroot()
+            
+            # Remove namespaces for easier parsing
+            for elem in root.iter():
+                elem.tag = elem.tag.split('}')[-1]
+            
+            # Look for table-like structures
+            tables.extend(self._extract_xml_tables(root))
+            
+            # Look for repeating structures
+            tables.extend(self._extract_xml_repeating_structures(root))
+            
+        except Exception as e:
+            logger.error(f"Error parsing XML: {e}")
+        
+        return tables
+    
+    def _extract_xml_tables(self, root) -> List[Dict]:
+        """Extract explicit table structures from XML"""
+        tables = []
+        
+        # Look for elements named 'table', 'Table', etc.
+        for table_elem in root.findall('.//table') + root.findall('.//Table'):
+            rows = []
+            
+            # Look for row elements
+            for row_elem in table_elem.findall('.//row') + table_elem.findall('.//Row'):
+                row_data = {}
+                
+                # Extract all child elements as columns
+                for child in row_elem:
+                    row_data[child.tag] = child.text or ''
+                
+                if row_data:
+                    rows.append(row_data)
+            
+            if rows:
+                df = pd.DataFrame(rows)
+                tables.append({
+                    'data': df,
+                    'sheet_name': f'XML_Table_{len(tables) + 1}',
+                    'source': 'xml_table'
+                })
+        
+        return tables
+    
+    def _extract_xml_repeating_structures(self, root) -> List[Dict]:
+        """Extract repeating structures that might be tables"""
+        tables = []
+        
+        # Find elements that repeat (potential rows)
+        element_counts = {}
+        for elem in root.iter():
+            if len(elem) > 0:  # Has children
+                key = (elem.tag, tuple(child.tag for child in elem))
+                element_counts[key] = element_counts.get(key, 0) + 1
+        
+        # Process elements that repeat more than once
+        processed_tags = set()
+        
+        for (tag, child_structure), count in element_counts.items():
+            if count > 1 and tag not in processed_tags:
+                processed_tags.add(tag)
+                
+                # Extract all instances
+                rows = []
+                for elem in root.findall(f'.//{tag}'):
+                    if tuple(child.tag for child in elem) == child_structure:
+                        row_data = {}
+                        for child in elem:
+                            row_data[child.tag] = child.text or ''
+                        
+                        # Include attributes
+                        for attr_name, attr_value in elem.attrib.items():
+                            row_data[f'@{attr_name}'] = attr_value
+                        
+                        if row_data:
+                            rows.append(row_data)
+                
+                if len(rows) > 1:  # At least 2 rows
+                    df = pd.DataFrame(rows)
+                    if not df.empty:
+                        tables.append({
+                            'data': df,
+                            'sheet_name': f'XML_{tag}',
+                            'source': 'xml_repeating'
+                        })
+        
+        return tables
+    
+    def _generate_sheet_name(self, df: pd.DataFrame, idx: int) -> str:
+        """Generate sheet name"""
+        if not df.empty and len(df.columns) > 0:
+            # Use first column name if meaningful
+            first_col = str(df.columns[0])
+            if first_col and len(first_col) > 2 and first_col != '0':
+                sheet_name = first_col[:20].strip()
+                for char in ['/', '\\', '?', '*', '[', ']', ':']:
+                    sheet_name = sheet_name.replace(char, '_')
+                return f"{sheet_name}_t{idx + 1}"
+        
+        return f"Table_{idx + 1}"
+import cv2
+import numpy as np
+import pytesseract
+import pandas as pd
+from PIL import Image
+from typing import List, Dict, Tuple
+import os
+from config.settings import Settings
+from utils.logger import setup_logger
+
+logger = setup_logger('image_parser')
+
+class ImageParser:
+    """Parser for image files with OCR"""
+    
+    def __init__(self, ocr_settings: dict):
+        self.settings = Settings()
+        self.ocr_settings = ocr_settings
+        self.screenshot_dir = f"{self.settings.TEMP_DIR}/screenshots"
+        os.makedirs(self.screenshot_dir, exist_ok=True)
+    
+    def extract_tables(self, file_path: str) -> List[Dict]:
+        """Extract tables from image using OCR"""
+        tables = []
+        
+        try:
+            # Load and preprocess image
+            image = self._load_and_preprocess(file_path)
+            
+            # Save preprocessed image for debugging
+            debug_path = os.path.join(self.screenshot_dir, "preprocessed.png")
+            cv2.imwrite(debug_path, image)
+            
+            # Detect table regions
+            table_regions = self._detect_table_regions(image)
+            logger.info(f"Detected {len(table_regions)} potential table regions")
+            
+            # Extract tables from regions
+            for idx, region in enumerate(table_regions):
+                try:
+                    table_data = self._extract_table_from_region(image, region, idx)
+                    
+                    if table_data and not table_data['data'].empty:
+                        tables.append(table_data)
+                        
+                except Exception as e:
+                    logger.error(f"Error extracting table {idx}: {e}")
+            
+            # If no tables detected, try full image OCR
+            if not tables:
+                logger.info("No table regions detected, trying full image OCR")
+                full_ocr = self._perform_full_ocr(image, file_path)
+                if full_ocr and not full_ocr['data'].empty:
+                    tables.append(full_ocr)
+                    
+        except Exception as e:
+            logger.error(f"Error processing image: {e}")
+        
+        return tables
+    
+    def _load_and_preprocess(self, file_path: str) -> np.ndarray:
+        """Load and preprocess image for OCR"""
+        # Load image
+        image = cv2.imread(file_path)
+        if image is None:
+            raise ValueError(f"Could not load image: {file_path}")
+        
+        # Convert to grayscale
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        
+        # Auto-rotate if needed
+        if self.ocr_settings.get('rotate_auto', True):
+            gray = self._auto_rotate(gray)
+        
+        # Apply preprocessing based on settings
+        if self.ocr_settings.get('enhance_contrast', True):
+            gray = self._enhance_contrast(gray)
+        
+        if self.ocr_settings.get('denoise', True):
+            gray = cv2.fastNlMeansDenoising(gray, h=10)
+        
+        # Resize based on DPI setting
+        target_dpi = self.ocr_settings.get('dpi', 300)
+        gray = self._resize_for_dpi(gray, target_dpi)
+        
+        # Binarization
+        _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        
+        return binary
+    
+    def _auto_rotate(self, image: np.ndarray) -> np.ndarray:
+        """Auto-rotate image based on text orientation"""
+        try:
+            # Detect orientation using Tesseract
+            osd = pytesseract.image_to_osd(image)
+            angle = int(osd.split('\n')[2].split(':')[1])
+            
+            if angle != 0:
+                logger.info(f"Rotating image by {angle} degrees")
+                # Get rotation matrix
+                height, width = image.shape
+                center = (width // 2, height // 2)
+                M = cv2.getRotationMatrix2D(center, angle, 1.0)
+                
+                # Calculate new dimensions
+                cos = np.abs(M[0, 0])
+                sin = np.abs(M[0, 1])
+                new_width = int((height * sin) + (width * cos))
+                new_height = int((height * cos) + (width * sin))
+                
+                # Adjust rotation matrix
+                M[0, 2] += (new_width / 2) - center[0]
+                M[1, 2] += (new_height / 2) - center[1]
+                
+                # Rotate image
+                rotated = cv2.warpAffine(image, M, (new_width, new_height), 
+                                       borderValue=255)
+                return rotated
+        except:
+            logger.warning("Could not detect orientation, skipping rotation")
+        
+        return image
+    
+    def _enhance_contrast(self, image: np.ndarray) -> np.ndarray:
+        """Enhance image contrast"""
+        # Apply CLAHE (Contrast Limited Adaptive Histogram Equalization)
+        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+        return clahe.apply(image)
+    
+    def _resize_for_dpi(self, image: np.ndarray, target_dpi: int) -> np.ndarray:
+        """Resize image based on target DPI"""
+        # Assume original is 72 DPI if unknown
+        scale = target_dpi / 72
+        if scale > 1.5:
+            width = int(image.shape[1] * scale)
+            height = int(image.shape[0] * scale)
+            return cv2.resize(image, (width, height), interpolation=cv2.INTER_CUBIC)
+        return image
+    
+    def _detect_table_regions(self, image: np.ndarray) -> List[Tuple[int, int, int, int]]:
+        """Detect potential table regions in image"""
+        regions = []
+        
+        # Detect lines
+        horizontal_lines = self._detect_lines(image, horizontal=True)
+        vertical_lines = self._detect_lines(image, horizontal=False)
+        
+        # Combine lines
+        combined = cv2.addWeighted(horizontal_lines, 0.5, vertical_lines, 0.5, 0)
+        
+        # Find contours
+        contours, _ = cv2.findContours(combined, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        
+        # Filter contours that could be tables
+        image_area = image.shape[0] * image.shape[1]
+        
+        for contour in contours:
+            x, y, w, h = cv2.boundingRect(contour)
+            area = w * h
+            
+            # Filter by size and aspect ratio
+            if (area > image_area * 0.01 and  # At least 1% of image
+                area < image_area * 0.9 and   # Not more than 90% of image
+                w > 100 and h > 50 and        # Minimum size
+                w/h > 0.3 and w/h < 20):      # Reasonable aspect ratio
+                
+                # Add padding
+                padding = 10
+                x = max(0, x - padding)
+                y = max(0, y - padding)
+                w = min(image.shape[1] - x, w + 2 * padding)
+                h = min(image.shape[0] - y, h + 2 * padding)
+                
+                regions.append((x, y, w, h))
+        
+        # Sort by area (largest first)
+        regions.sort(key=lambda r: r[2] * r[3], reverse=True)
+        
+        # Remove overlapping regions
+        regions = self._remove_overlapping_regions(regions)
+        
+        return regions
+    
+    def _detect_lines(self, image: np.ndarray, horizontal: bool = True) -> np.ndarray:
+        """Detect horizontal or vertical lines in image"""
+        # Create kernel for morphological operations
+        if horizontal:
+            kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (40, 1))
+        else:
+            kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, 40))
+        
+        # Apply morphological operations
+        detected = cv2.morphologyEx(image, cv2.MORPH_OPEN, kernel)
+        
+        return detected
+    
+    def _remove_overlapping_regions(self, regions: List[Tuple]) -> List[Tuple]:
+        """Remove overlapping regions, keeping larger ones"""
+        if not regions:
+            return regions
+        
+        kept_regions = []
+        
+        for i, region1 in enumerate(regions):
+            x1, y1, w1, h1 = region1
+            keep = True
+            
+            for j, region2 in enumerate(regions[:i]):
+                x2, y2, w2, h2 = region2
+                
+                # Check if region1 is inside region2
+                if (x1 >= x2 and y1 >= y2 and 
+                    x1 + w1 <= x2 + w2 and y1 + h1 <= y2 + h2):
+                    keep = False
+                    break
+            
+            if keep:
+                kept_regions.append(region1)
+        
+        return kept_regions
+    
+    def _extract_table_from_region(self, image: np.ndarray, region: Tuple, idx: int) -> Dict:
+        """Extract table data from image region"""
+        x, y, w, h = region
+        table_img = image[y:y+h, x:x+w]
+        
+        # Save screenshot of region
+        screenshot_path = os.path.join(self.screenshot_dir, f"table_region_{idx}.png")
+        cv2.imwrite(screenshot_path, table_img)
+        
+        # Perform OCR with custom config
+        psm = self.ocr_settings.get('psm', 6)
+        custom_config = f'--oem 3 --psm {psm} -l {self.settings.OCR_LANGUAGES}'
+        
+        # Get detailed OCR data
+        ocr_data = pytesseract.image_to_data(
+            table_img, 
+            config=custom_config,
+            output_type=pytesseract.Output.DICT
+        )
+        
+        # Parse OCR results into table structure
+        df, ocr_errors = self._parse_ocr_to_table(ocr_data, idx, screenshot_path)
+        
+        if df is not None and not df.empty:
+            sheet_name = f"OCR_Table_{idx + 1}"
+            
+            return {
+                'data': df,
+                'sheet_name': sheet_name,
+                'ocr_errors': ocr_errors,
+                'screenshot': screenshot_path,
+                'region': region
+            }
+        
+        return None
+    
+    def _parse_ocr_to_table(self, ocr_data: dict, table_idx: int, screenshot_path: str) -> Tuple[pd.DataFrame, List[Dict]]:
+        """Parse OCR data into table structure"""
+        # Group text by lines
+        lines = {}
+        ocr_errors = []
+        
+        n_boxes = len(ocr_data['text'])
+        
+        for i in range(n_boxes):
+            if ocr_data['conf'][i] > 0:  # Valid detection
+                text = ocr_data['text'][i].strip()
+                if text:
+                    line_num = ocr_data['line_num'][i]
+                    conf = ocr_data['conf'][i]
+                    
+                    if line_num not in lines:
+                        lines[line_num] = []
+                    
+                    # Check confidence threshold
+                    if conf < self.settings.OCR_CONFIDENCE_THRESHOLD:
+                        original_text = text
+                        text = f"[OCR_ERROR: {text}]"
+                        ocr_errors.append({
+                            'filename': screenshot_path,
+                            'table_idx': table_idx,
+                            'line': line_num,
+                            'cell': f"Line{line_num}_Pos{len(lines[line_num])}",
+                            'text': original_text,
+                            'confidence': conf,
+                            'bbox': (ocr_data['left'][i], ocr_data['top'][i], 
+                                   ocr_data['width'][i], ocr_data['height'][i])
+                        })
+                    
+                    lines[line_num].append({
+                        'text': text,
+                        'left': ocr_data['left'][i],
+                        'top': ocr_data['top'][i],
+                        'width': ocr_data['width'][i],
+                        'height': ocr_data['height'][i]
+                    })
+        
+        # Convert lines to table structure
+        if lines:
+            # Sort lines by line number
+            sorted_lines = sorted(lines.items(), key=lambda x: x[0])
+            
+            # Group words into cells based on horizontal position
+            rows = []
+            
+            for line_num, words in sorted_lines:
+                if words:
+                    # Sort words by horizontal position
+                    words.sort(key=lambda x: x['left'])
+                    
+                    # Group words into cells
+                    cells = self._group_words_into_cells(words)
+                    
+                    if cells:
+                        rows.append(cells)
+            
+            # Create DataFrame
+            if rows:
+                # Determine the maximum number of columns
+                max_cols = max(len(row) for row in rows)
+                
+                # Pad rows to have same number of columns
+                for row in rows:
+                    while len(row) < max_cols:
+                        row.append('')
+                
+                # Create DataFrame
+                if len(rows) > 1:
+                    # Use first row as headers
+                    df = pd.DataFrame(rows[1:], columns=rows[0])
+                else:
+                    df = pd.DataFrame(rows)
+                
+                # Clean up the DataFrame
+                df = self._clean_ocr_dataframe(df)
+                
+                return df, ocr_errors
+        
+        return pd.DataFrame(), ocr_errors
+    
+    def _group_words_into_cells(self, words: List[Dict]) -> List[str]:
+        """Group words into cells based on horizontal gaps"""
+        if not words:
+            return []
+        
+        cells = []
+        current_cell = [words[0]['text']]
+        last_right = words[0]['left'] + words[0]['width']
+        
+        # Calculate average character width
+        avg_char_width = sum(w['width'] / max(len(w['text']), 1) for w in words) / len(words)
+        gap_threshold = avg_char_width * 3  # Gap of 3 characters indicates new cell
+        
+        for word in words[1:]:
+            gap = word['left'] - last_right
+            
+            if gap > gap_threshold:
+                # Start new cell
+                cells.append(' '.join(current_cell))
+                current_cell = [word['text']]
+            else:
+                # Continue current cell
+                current_cell.append(word['text'])
+            
+            last_right = word['left'] + word['width']
+        
+        # Add last cell
+        if current_cell:
+            cells.append(' '.join(current_cell))
+        
+        return cells
+    
+    def _clean_ocr_dataframe(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Clean OCR-extracted DataFrame"""
+        # Remove empty columns
+        df = df.loc[:, (df != '').any(axis=0)]
+        
+        # Remove empty rows
+        df = df[(df != '').any(axis=1)]
+        
+        # Replace OCR artifacts
+        replacements = {
+            '|': '',  # Vertical lines often detected as |
+            '_': '',  # Underscores from lines
+            '—': '-', # Em dash to hyphen
+        }
+        
+        for old, new in replacements.items():
+            df = df.replace(old, new, regex=False)
+        
+        # Strip whitespace
+        df = df.applymap(lambda x: x.strip() if isinstance(x, str) else x)
+        
+        return df
+    
+    def _perform_full_ocr(self, image: np.ndarray, original_path: str) -> Dict:
+        """Perform OCR on full image as fallback"""
+        try:
+            psm = self.ocr_settings.get('psm', 6)
+            custom_config = f'--oem 3 --psm {psm} -l {self.settings.OCR_LANGUAGES}'
+            
+            # Get OCR data
+            ocr_data = pytesseract.image_to_data(
+                image, 
+                config=custom_config,
+                output_type=pytesseract.Output.DICT
+            )
+            
+            # Try to extract structured data
+            df, ocr_errors = self._parse_ocr_to_table(ocr_data, 0, original_path)
+            
+            if not df.empty:
+                return {
+                    'data': df,
+                    'sheet_name': 'OCR_FullImage',
+                    'ocr_errors': ocr_errors,
+                    'method': 'full_image_ocr'
+                }
+            
+            # Fallback to simple text extraction
+            text = pytesseract.image_to_string(image, config=custom_config)
+            
+            if text.strip():
+                # Try to parse as simple table
+                lines = text.strip().split('\n')
+                rows = []
+                
+                for line in lines:
+                    if line.strip():
+                        # Split by multiple spaces or tabs
+                        import re
+                        cells = re.split(r'\s{2,}|\t', line.strip())
+                        if len(cells) > 1:  # Only keep lines with multiple cells
+                            rows.append(cells)
+                
+                if rows:
+                    df = pd.DataFrame(rows)
+                    return {
+                        'data': df,
+                        'sheet_name': 'OCR_Text',
+                        'ocr_errors': [],
+                        'method': 'text_parsing'
+                    }
+                
+        except Exception as e:
+            logger.error(f"Full image OCR failed: {e}")
+        
+        return None
+import pandas as pd
+from docx import Document
+from typing import List, Dict
+from utils.logger import setup_logger
+
+logger = setup_logger('docx_parser')
+
+
+class DOCXParser:
+    """Парсер для извлечения таблиц из документов Word"""
+
+    def extract_tables(self, file_path: str) -> List[Dict]:
+        """
+        Извлечение таблиц из DOCX файла
+
+        Args:
+            file_path (str): Путь к DOCX файлу
+
+        Returns:
+            List[Dict]: Список извлеченных таблиц
+        """
+        tables = []
+
+        try:
+            doc = Document(file_path)
+
+            for table_idx, table in enumerate(doc.tables):
+                try:
+                    # Извлечение данных из таблицы
+                    data = []
+                    for row in table.rows:
+                        row_data = [cell.text.strip() for cell in row.cells]
+                        data.append(row_data)
+
+                    # Создание DataFrame
+                    if len(data) > 1:
+                        df = pd.DataFrame(data[1:], columns=data[0])
+
+                        tables.append({
+                            'data': df,
+                            'sheet_name': f'DOCX_Table_{table_idx + 1}',
+                            'source': 'docx_parser'
+                        })
+
+                except Exception as e:
+                    logger.error(f"Ошибка обработки таблицы {table_idx}: {e}")
+
+        except Exception as e:
+            logger.error(f"Общая ошибка парсинга DOCX: {e}")
+
+        return tablesimport pandas as pd
+import chardet
+from typing import List, Dict
+from utils.logger import setup_logger
+
+logger = setup_logger('csv_parser')
+
+
+class CSVParser:
+    """Парсер для CSV и текстовых файлов"""
+
+    def extract_tables(self, file_path: str) -> List[Dict]:
+        """
+        Извлечение таблиц из CSV/текстового файла
+
+        Args:
+            file_path (str): Путь к файлу
+
+        Returns:
+            List[Dict]: Список извлеченных таблиц
+        """
+        tables = []
+
+        try:
+            # Определение кодировки
+            with open(file_path, 'rb') as file:
+                raw_data = file.read()
+                encoding = chardet.detect(raw_data)['encoding']
+
+            # Пробуем различные разделители
+            delimiters = [',', ';', '\t', '|']
+
+            for delimiter in delimiters:
+                try:
+                    df = pd.read_csv(
+                        file_path,
+                        encoding=encoding,
+                        delimiter=delimiter,
+                        on_bad_lines='skip'
+                    )
+
+                    if not df.empty and len(df.columns) > 1:
+                        tables.append({
+                            'data': df,
+                            'sheet_name': 'CSV_Table',
+                            'source': 'csv_parser',
+                            'delimiter': delimiter
+                        })
+                        break
+
+                except Exception as e:
+                    logger.debug(f"Ошибка с разделителем {delimiter}: {e}")
+
+        except Exception as e:
+            logger.error(f"Ошибка парсинга CSV: {e}")
+
+        return tablesimport pdfplumber
+import tabula
+import pandas as pd
+import numpy as np
+from typing import List, Dict, Optional
+from config.pdf_parser_settings import PDFParserSettings
+from utils.logger import setup_logger
+
+logger = setup_logger('pdf_parser')
+
+
+class PDFParser:
+    """
+    Расширенный парсер PDF-файлов с поддержкой множественных стратегий извлечения таблиц
+    """
+
+    def __init__(self, settings: Optional[Dict] = None):
+        """
+        Инициализация парсера с настройками
+
+        Args:
+            settings (Optional[Dict]): Пользовательские настройки парсера
+        """
+        self.settings = settings or PDFParserSettings.load_settings()
+        self.logger = logger
+
+    def extract_tables(self, file_path: str) -> List[Dict]:
+        """
+        Основной метод извлечения таблиц из PDF
+
+        Args:
+            file_path (str): Путь к PDF файлу
+
+        Returns:
+            List[Dict]: Список извлеченных таблиц
+        """
+        tables = []
+
+        # Последовательность стратегий извлечения
+        extraction_strategies = [
+            self._extract_with_pdfplumber,
+            self._extract_with_tabula
+        ]
+
+        for strategy in extraction_strategies:
+            try:
+                strategy_tables = strategy(file_path)
+                tables.extend(strategy_tables)
+
+                if tables:
+                    self.logger.info(f"Найдено таблиц с помощью {strategy.__name__}: {len(strategy_tables)}")
+            except Exception as e:
+                self.logger.warning(f"Ошибка при извлечении таблиц ({strategy.__name__}): {e}")
+
+        # Удаление дубликатов и возврат результата
+        return self._deduplicate_tables(tables)
+
+    def _extract_with_pdfplumber(self, file_path: str) -> List[Dict]:
+        """
+        Извлечение таблиц с использованием pdfplumber
+
+        Args:
+            file_path (str): Путь к PDF файлу
+
+        Returns:
+            List[Dict]: Список извлеченных таблиц
+        """
+        tables = []
+
+        with pdfplumber.open(file_path) as pdf:
+            for page_num, page in enumerate(pdf.pages):
+                try:
+                    # Применение настроек парсера
+                    page_tables = page.extract_tables(
+                        line_margin=self.settings.get('line_margin', 0.5),
+                        char_margin=self.settings.get('char_margin', 2.0),
+                        vertical_strategy=self.settings.get('vertical_strategy', 'lines'),
+                        horizontal_strategy=self.settings.get('horizontal_strategy', 'lines')
+                    )
+
+                    for table_idx, table in enumerate(page_tables):
+                        if table and len(table) > 1:
+                            df = pd.DataFrame(table[1:], columns=table[0])
+
+                            # Фильтрация пустых таблиц
+                            if not df.empty and df.notna().any().any():
+                                sheet_name = self._generate_sheet_name(df, page_num, table_idx)
+
+                                tables.append({
+                                    'data': df,
+                                    'sheet_name': sheet_name,
+                                    'source': 'pdfplumber',
+                                    'page': page_num + 1
+                                })
+
+                except Exception as e:
+                    self.logger.warning(f"Ошибка обработки страницы {page_num + 1}: {e}")
+
+        return tables
+
+    def _extract_with_tabula(self, file_path: str) -> List[Dict]:
+        """
+        Извлечение таблиц с использованием Tabula
+
+        Args:
+            file_path (str): Путь к PDF файлу
+
+        Returns:
+            List[Dict]: Список извлеченных таблиц
+        """
+        tables = []
+
+        try:
+            # Применение настроек Tabula
+            dfs = tabula.read_pdf(
+                file_path,
+                pages='all',  # или конкретные страницы из настроек
+                multiple_tables=True,
+                guess=self.settings.get('guess', True)
+            )
+
+            for idx, df in enumerate(dfs):
+                # Фильтрация пустых и бессмысленных таблиц
+                if not df.empty and df.notna().any().any():
+                    sheet_name = self._generate_sheet_name(df, 0, idx)
+
+                    tables.append({
+                        'data': df,
+                        'sheet_name': sheet_name,
+                        'source': 'tabula'
+                    })
+
+        except Exception as e:
+            self.logger.error(f"Ошибка Tabula извлечения: {e}")
+
+        return tables
+
+    def _generate_sheet_name(self, df: pd.DataFrame, page_num: int, table_idx: int) -> str:
+        """
+        Генерация информативного имени листа
+
+        Args:
+            df (pd.DataFrame): Таблица
+            page_num (int): Номер страницы
+            table_idx (int): Индекс таблицы
+
+        Returns:
+            str: Сгенерированное имя листа
+        """
+        # Попытка использовать содержательную первую ячейку
+        for col in df.columns:
+            try:
+                first_val = str(df[col].iloc[0]) if not df.empty else ''
+                if first_val and first_val.lower() not in ['nan', '']:
+                    # Очистка и усечение
+                    sheet_name = first_val[:20].replace('/', '_').replace('\\', '_')
+                    return f"{sheet_name}_p{page_num + 1}"
+            except Exception:
+                continue
+
+        return f"Table_{page_num + 1}_{table_idx + 1}"
+
+    def _deduplicate_tables(self, tables: List[Dict]) -> List[Dict]:
+        """
+        Удаление дубликатов таблиц
+
+        Args:
+            tables (List[Dict]): Список таблиц
+
+        Returns:
+            List[Dict]: Список уникальных таблиц
+        """
+        unique_tables = []
+        seen_hashes = set()
+
+        for table in tables:
+            # Создание хеша с учетом структуры и содержимого
+            try:
+                table_hash = hash(
+                    (tuple(table['data'].columns.tolist()),
+                     tuple(map(tuple, table['data'].values)))
+                )
+
+                if table_hash not in seen_hashes:
+                    seen_hashes.add(table_hash)
+                    unique_tables.append(table)
+
+            except Exception as e:
+                self.logger.warning(f"Ошибка хеширования таблицы: {e}")
+
+        self.logger.info(f"Уникальных таблиц после дедупликации: {len(unique_tables)}")
+        return unique_tablesimport os
+import json
+from typing import Dict, Any
+import streamlit as st
+
+
+class PDFParserSettings:
+    """
+    Управление настройками PDF парсера
+    Поддерживает сохранение и загрузку пользовательских настроек
+    """
+
+    DEFAULT_SETTINGS: Dict[str, Any] = {
+        "line_margin": 0.5,
+        "char_margin": 2.0,
+        "line_overlap": 0.5,
+        "vertical_strategy": "lines",
+        "horizontal_strategy": "lines",
+        "rotation_angles": [0, 90, 180, 270],
+        "pages": "all",
+        "guess": True
+    }
+
+    SETTINGS_PATH: str = os.path.join(
+        os.path.dirname(__file__),
+        'pdf_parser_config.json'
+    )
+
+    @classmethod
+    def load_settings(cls) -> Dict[str, Any]:
+        """
+        Загрузка настроек парсера PDF
+
+        Returns:
+            Dict[str, Any]: Словарь настроек
+        """
+        try:
+            if os.path.exists(cls.SETTINGS_PATH):
+                with open(cls.SETTINGS_PATH, 'r', encoding='utf-8') as f:
+                    user_settings = json.load(f)
+                    # Слияние пользовательских и дефолтных настроек
+                    return {**cls.DEFAULT_SETTINGS, **user_settings}
+            return cls.DEFAULT_SETTINGS
+        except Exception as e:
+            st.error(f"Ошибка загрузки настроек PDF парсера: {e}")
+            return cls.DEFAULT_SETTINGS
+
+    @classmethod
+    def save_settings(cls, settings: Dict[str, Any]):
+        """
+        Сохранение пользовательских настроек
+
+        Args:
+            settings (Dict[str, Any]): Словарь настроек для сохранения
+        """
+        try:
+            with open(cls.SETTINGS_PATH, 'w', encoding='utf-8') as f:
+                json.dump(settings, f, indent=2, ensure_ascii=False)
+            st.success("Настройки PDF парсера сохранены!")
+        except Exception as e:
+            st.error(f"Ошибка сохранения настроек: {e}")
+
+    @classmethod
+    def get_streamlit_settings_ui(cls) -> Dict[str, Any]:
+        """
+        Создание UI настроек PDF парсера в Streamlit
+
+        Returns:
+            Dict[str, Any]: Выбранные пользователем настройки
+        """
+        # Загрузка текущих настроек
+        settings = cls.load_settings()
+
+        # Создание UI для настроек
+        with st.form("pdf_parser_settings"):
+            st.subheader("🔧 Настройки PDF парсера")
+
+            col1, col2 = st.columns(2)
+
+            with col1:
+                settings['line_margin'] = st.slider(
+                    "Margin линий",
+                    min_value=0.1,
+                    max_value=5.0,
+                    value=settings['line_margin'],
+                    step=0.1,
+                    help="Точность определения горизонтальных линий"
+                )
+
+                settings['vertical_strategy'] = st.selectbox(
+                    "Стратегия вертикальных границ",
+                    ['lines', 'explicit', 'implied'],
+                    index=['lines', 'explicit', 'implied'].index(settings['vertical_strategy'])
+                )
+
+            with col2:
+                settings['char_margin'] = st.slider(
+                    "Margin символов",
+                    min_value=0.1,
+                    max_value=5.0,
+                    value=settings['char_margin'],
+                    step=0.1,
+                    help="Точность определения вертикальных линий"
+                )
+
+                settings['horizontal_strategy'] = st.selectbox(
+                    "Стратегия горизонтальных границ",
+                    ['lines', 'explicit', 'implied'],
+                    index=['lines', 'explicit', 'implied'].index(settings['horizontal_strategy'])
+                )
+
+            settings['line_overlap'] = st.slider(
+                "Перекрытие линий",
+                min_value=0.0,
+                max_value=1.0,
+                value=settings['line_overlap'],
+                step=0.1,
+                help="Степень перекрытия линий при детекции таблиц"
+            )
+
+            settings['rotation_angles'] = st.multiselect(
+                "Углы поворота для исследования",
+                [0, 90, 180, 270],
+                default=settings['rotation_angles'],
+                help="Углы поворота документа для поиска таблиц"
+            )
+
+            # Кнопка сохранения
+            submitted = st.form_submit_button("💾 Сохранить настройки")
+
+            if submitted:
+                cls.save_settings(settings)
+
+        return settingsimport os
+from pathlib import Path
+from dotenv import load_dotenv
+
+# Загрузка переменных окружения
+load_dotenv()
+
+
+class Settings:
+    """
+    Централизованный класс настроек приложения
+    Загружает и предоставляет глобальные параметры конфигурации
+    """
+
+    # Базовые пути
+    BASE_DIR: Path = Path(__file__).resolve().parent.parent
+    TEMP_DIR: Path = BASE_DIR / 'temp'
+    LOG_DIR: Path = BASE_DIR / 'logs'
+    SCREENSHOTS_DIR: Path = BASE_DIR / 'screenshots'
+
+    # Параметры парсинга
+    MAX_FILE_SIZE_MB: int = int(os.getenv('MAX_FILE_SIZE_MB', 50))
+    MAX_FILES_PER_BATCH: int = int(os.getenv('MAX_FILES_PER_BATCH', 10))
+
+    # OCR настройки
+    OCR_LANGUAGES: str = os.getenv('OCR_LANGUAGES', 'rus+eng')
+    OCR_CONFIDENCE_THRESHOLD: int = int(os.getenv('OCR_CONFIDENCE_THRESHOLD', 60))
+
+    # Пути для хранения временных файлов
+    TEMP_UPLOAD_DIR: Path = TEMP_DIR / 'uploads'
+    TEMP_PROCESSING_DIR: Path = TEMP_DIR / 'processing'
+
+    def __init__(self):
+        """
+        Инициализация директорий при создании экземпляра
+        Гарантирует наличие всех необходимых директорий
+        """
+        self._create_directories()
+
+    def _create_directories(self):
+        """
+        Создание всех необходимых директорий
+        Метод вызывается при инициализации класса
+        """
+        dirs_to_create = [
+            self.TEMP_DIR,
+            self.LOG_DIR,
+            self.SCREENSHOTS_DIR,
+            self.TEMP_UPLOAD_DIR,
+            self.TEMP_PROCESSING_DIR
+        ]
+
+        for directory in dirs_to_create:
+            directory.mkdir(parents=True, exist_ok=True)
+
+    @classmethod
+    def get_db_connection_params(cls) -> dict:
+        """
+        Получение параметров подключения к базе данных
+        Используется для расширенной функциональности
+        """
+        return {
+            'host': os.getenv('DB_HOST', 'localhost'),
+            'port': int(os.getenv('DB_PORT', 5432)),
+            'database': os.getenv('DB_NAME', 'table_parser_db'),
+            'user': os.getenv('DB_USER', 'postgres'),
+            'password': os.getenv('DB_PASSWORD', '')
+        }
+
+    def get_logging_config(self) -> dict:
+        """
+        Конфигурация логирования
+
+        Returns:
+            dict: Настройки для библиотеки logging
+        """
+        return {
+            'version': 1,
+            'disable_existing_loggers': False,
+            'formatters': {
+                'standard': {
+                    'format': '%(asctime)s [%(levelname)s] %(name)s: %(message)s'
+                },
+            },
+            'handlers': {
+                'file_handler': {
+                    'class': 'logging.FileHandler',
+                    'filename': self.LOG_DIR / f'table_parser_{os.getpid()}.log',
+                    'formatter': 'standard',
+                    'level': 'INFO'
+                },
+                'console': {
+                    'class': 'logging.StreamHandler',
+                    'level': 'DEBUG',
+                    'formatter': 'standard'
+                }
+            },
+            'loggers': {
+                '': {  # root logger
+                    'handlers': ['file_handler', 'console'],
+                    'level': 'INFO',
+                    'propagate': True
+                }
+            }
+        }
+
+
+# Создание глобального экземпляра настроек
+settings = Settings()import pandas as pd
+import numpy as np
+from typing import Dict
+from processors.column_mappings import ColumnMappings
+from utils.logger import setup_logger
+
+logger = setup_logger('table_processor')
+
+
+class TableProcessor:
+    """
+    Процессор для трансформации и очистки таблиц
+    Применяет стандартизацию и типизацию данных
+    """
+
+    def process_table(self, df: pd.DataFrame, sheet_name: str) -> Dict:
+        """
+        Основной метод обработки таблицы
+
+        Args:
+            df (pd.DataFrame): Исходная таблица
+            sheet_name (str): Имя листа
+
+        Returns:
+            Dict: Обработанная таблица с метаданными
+        """
+        try:
+            # Очистка таблицы
+            df = self._clean_dataframe(df)
+
+            # Стандартизация заголовков
+            df = self._normalize_headers(df)
+
+            # Определение и конвертация типов
+            df = self._convert_column_types(df)
+
+            return {
+                'dataframe': df,
+                'sheet_name': sheet_name,
+                'rows_count': len(df),
+                'columns_count': len(df.columns)
+            }
+
+        except Exception as e:
+            logger.error(f"Ошибка обработки таблицы: {e}")
+            return {
+                'dataframe': df,
+                'sheet_name': sheet_name,
+                'error': str(e)
+            }
+
+    def _clean_dataframe(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Очистка таблицы от пустых и дублированных данных
+
+        Args:
+            df (pd.DataFrame): Исходная таблица
+
+        Returns:
+            pd.DataFrame: Очищенная таблица
+        """
+        # Удаление полностью пустых строк и столбцов
+        df = df.dropna(how='all')
+
+        # Удаление дубликатов
+        df = df.drop_duplicates()
+
+        # Очистка строковых столбцов
+        for col in df.select_dtypes(include=['object']).columns:
+            df[col] = df[col].str.strip()
+            df[col] = df[col].replace(r'^\s*$', np.nan, regex=True)
+
+        return df
+
+    def _normalize_headers(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Стандартизация заголовков таблицы
+
+        Args:
+            df (pd.DataFrame): Исходная таблица
+
+        Returns:
+            pd.DataFrame: Таблица с нормализованными заголовками
+        """
+        df.columns = [
+            ColumnMappings.get_standard_column(col)
+            for col in df.columns
+        ]
+        return df
+
+    def _convert_column_types(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Определение и конвертация типов данных
+
+        Args:
+            df (pd.DataFrame): Исходная таблица
+
+        Returns:
+            pd.DataFrame: Таблица с корректными типами
+        """
+        for col in df.columns:
+            # Попытка конвертации в числовой тип
+            numeric_series = pd.to_numeric(
+                df[col].apply(
+                    lambda x: str(x).replace(' ', '')
+                    .replace(',', '.')
+                    .replace('%', '')
+                ),
+                errors='coerce'
+            )
+
+            # Конвертация, если более 50% значений успешно преобразованы
+            if numeric_series.notna().mean() > 0.5:
+                df[col] = numeric_series
+                continue
+
+            # Распознавание даты
+            date_series = pd.to_datetime(
+                df[col],
+                errors='coerce',
+                format='mixed'
+            )
+
+            if date_series.notna().mean() > 0.5:
+                df[col] = date_series
+
+        return dfimport re
+from typing import Dict
+
+
+class ColumnMappings:
+    """
+    Класс для стандартизации и маппинга названий колонок
+    """
+
+    HEADER_REPLACEMENTS = {
+        # Наименование
+        'наименование': 'name',
+        'наименование товара': 'name',
+        'торговое наименование': 'name',
+        'наименование препарата': 'name',
+        'название': 'name',
+        'мнн, дозировка, фасовка': 'name',
+
+        # Синонимы для полного наименования
+        'полное наименование': 'full_name',
+        'наименование препарата с дозировкой': 'full_name',
+        'международное непатентованное наименование': 'full_name',
+        'мнн': 'mnn',
+
+        # Цена
+        'цена': 'price',
+        'цена прайса с ндс': 'price_with_vat',
+        'цена, руб': 'price',
+        'без НДС, руб.': 'price_without_vat',
+        'с НДС, руб.': 'price_with_vat',
+        'зарегистрированная предельная отпускная цена производителя (цена жнвлп)': 'regulated_price',
+        'минимальная цена': 'min_price',
+        'стоимость': 'price',
+        'ндс': 'vat',
+
+        # Дополнительные поля цены
+        'оптовая цена': 'wholesale_price',
+        'розничная цена': 'retail_price',
+
+        # Количество
+        'количество': 'quantity',
+        'остаток': 'quantity',
+        'доступное количество': 'quantity',
+
+        # Идентификаторы
+        'серия': 'series',
+        'партия': 'batch',
+        'артикул': 'article',
+        'код': 'code',
+        'код номенклатуры': 'nomenclature_code',
+
+        # Дополнительные классификаторы
+        'категория': 'category',
+        'группа товаров': 'product_group',
+
+        # Производитель
+        'производитель': 'manufacturer',
+        'страна производителя': 'manufacturer_country',
+
+        # Дополнительные характеристики
+        'форма выпуска': 'dosage_form',
+        'дозировка': 'dosage',
+        'фасовка': 'packaging',
+
+        # Регистрационные данные
+        'регистрационный номер': 'registration_number',
+        'дата регистрации': 'registration_date'
+    }
+
+    PRICE_COLUMNS = {
+        'price_with_vat': [
+            'цена с ндс', 'с ндс, руб.',
+            'цена прайса с ндс', 'цена розничная с ндс'
+        ],
+        'price_without_vat': [
+            'цена без ндс', 'без ндс, руб.',
+            'цена оптовая без ндс'
+        ],
+        'regulated_price': [
+            'жнвлп', 'зарегистрированная цена',
+            'предельная цена'
+        ],
+        'quantity': [
+            'количество', 'остаток', 'доступное количество',
+            'кол-во', 'remainder'
+        ],
+        'article': [
+            'артикул', 'код', 'code', 'product_id'
+        ]
+    }
+
+    @classmethod
+    def get_standard_column(cls, column_name: str) -> str:
+        """
+        Стандартизация названия колонки
+
+        Args:
+            column_name (str): Исходное название
+
+        Returns:
+            str: Стандартизированное название
+        """
+        # Приведение к нижнему регистру и очистка
+        clean_name = str(column_name).lower().strip()
+        clean_name = re.sub(r'[^a-zа-я0-9\s]', '', clean_name)
+
+        # Поиск соответствия в словаре
+        for key, value in cls.HEADER_REPLACEMENTS.items():
+            if key in clean_name:
+                return value
+
+        return clean_nameimport os
+import tempfile
+from datetime import datetime
+from typing import Dict, List
+import pandas as pd
+from io import BytesIO
+import json
+import time
+
+from parsers.pdf_parser import PDFParser
+from parsers.docx_parser import DOCXParser
+from parsers.csv_parser import CSVParser
+from config.settings import settings
+from processors.table_processor import TableProcessor
+from utils.logger import setup_logger
+
+logger = setup_logger('file_processor')
+
+
+class FileProcessor:
+    """
+    Основной процессор для обработки файлов различных форматов
+    Координирует извлечение и трансформацию таблиц
+    """
+
+    def __init__(self):
+        """
+        Инициализация процессора с парсерами для разных форматов
+        """
+        self.parsers = {
+            '.pdf': PDFParser(),
+            '.docx': DOCXParser(),
+            '.doc': DOCXParser(),
+            '.csv': CSVParser()
+        }
+        self.table_processor = TableProcessor()
+
+    def process_file(self, uploaded_file) -> Dict:
+        """
+        Основной метод обработки загруженного файла
+
+        Args:
+            uploaded_file: Загруженный файл
+
+        Returns:
+            Dict: Результат обработки файла
+        """
+        start_time = time.time()
+
+        # Проверка размера файла
+        if len(uploaded_file.getvalue()) > settings.MAX_FILE_SIZE_MB * 1024 * 1024:
+            raise ValueError(f"Размер файла превышает {settings.MAX_FILE_SIZE_MB} МБ")
+
+        # Временное сохранение файла
+        with tempfile.NamedTemporaryFile(
+                delete=False,
+                suffix=os.path.splitext(uploaded_file.name)[1]
+        ) as tmp_file:
+            tmp_file.write(uploaded_file.getvalue())
+            file_path = tmp_file.name
+
+        try:
+            # Определение парсера по расширению
+            file_ext = os.path.splitext(uploaded_file.name)[1].lower()
+            parser = self.parsers.get(file_ext)
+
+            if not parser:
+                raise ValueError(f"Неподдерживаемый формат файла: {file_ext}")
+
+            # Извлечение таблиц
+            tables = parser.extract_tables(file_path)
+            print(f"Извлечено {len(tables)} таблиц из файла {uploaded_file.name}")
+
+            # Обработка таблиц
+            processed_tables = []
+            for table_data in tables:
+                processed_table = self.table_processor.process_table(
+                    table_data['data'],
+                    table_data.get('sheet_name', 'Sheet')
+                )
+                processed_tables.append(processed_table)
+
+            # Создание Excel файла
+            output_bytes = self._create_excel(processed_tables, uploaded_file.name)
+
+            # Генерация имени файла
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            base_name = os.path.splitext(uploaded_file.name)[0]
+            output_filename = f"{base_name}_processed_{timestamp}.xlsx"
+
+            processing_time = round(time.time() - start_time, 2)
+
+            return {
+                'data': output_bytes,
+                'output_filename': output_filename,
+                'tables_count': len(processed_tables),
+                'processing_time': processing_time
+            }
+
+        except Exception as e:
+            logger.error(f"Ошибка обработки файла: {e}", exc_info=True)
+            raise
+        finally:
+            # Удаление временного файла
+            if os.path.exists(file_path):
+                os.unlink(file_path)
+
+    def _create_excel(self, tables: List[Dict], original_filename: str) -> bytes:
+        """
+        Создание Excel файла из обработанных таблиц
+
+        Args:
+            tables (List[Dict]): Список обработанных таблиц
+            original_filename (str): Имя исходного файла
+
+        Returns:
+            bytes: Байты Excel файла
+        """
+        output = BytesIO()
+
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            used_sheet_names = set()
+
+            for table_info in tables:
+                df = table_info['dataframe']
+                sheet_name = table_info['sheet_name']
+
+                # Обеспечение уникальности имени листа
+                base_name = sheet_name
+                counter = 1
+                while sheet_name in used_sheet_names:
+                    sheet_name = f"{base_name}_{counter}"
+                    counter += 1
+
+                used_sheet_names.add(sheet_name)
+
+                # Запись таблицы
+                df.to_excel(writer, sheet_name=sheet_name, index=False)
+
+        output.seek(0)
+        return output.getvalue()import os
+import shutil
+from datetime import datetime, timedelta
+from typing import List, Optional
+from config.settings import settings
+from utils.logger import setup_logger
+
+logger = setup_logger('file_handler')
+
+
+class FileHandler:
+    """
+    Утилита для работы с временными файлами и директориями
+    """
+
+    @staticmethod
+    def cleanup_temp_files(
+            directory: str = None,
+            max_age_hours: int = 24
+    ) -> List[str]:
+        """
+        Удаление устаревших временных файлов
+
+        Args:
+            directory (str, optional): Директория для очистки
+            max_age_hours (int): Максимальный возраст файла в часах
+
+        Returns:
+            List[str]: Список удаленных файлов
+        """
+        directory = directory or settings.TEMP_DIR
+        cutoff_time = datetime.now() - timedelta(hours=max_age_hours)
+        deleted_files = []
+
+        try:
+            for root, _, files in os.walk(directory):
+                for file in files:
+                    file_path = os.path.join(root, file)
+
+                    try:
+                        # Получение времени последнего изменения
+                        mtime = datetime.fromtimestamp(os.path.getmtime(file_path))
+
+                        if mtime < cutoff_time:
+                            os.unlink(file_path)
+                            deleted_files.append(file_path)
+                            logger.info(f"Удален файл: {file_path}")
+                    except Exception as e:
+                        logger.warning(f"Ошибка при удалении {file_path}: {e}")
+
+        except Exception as e:
+            logger.error(f"Ошибка очистки временных файлов: {e}")
+
+        return deleted_files
+
+    @staticmethod
+    def save_uploaded_file(
+            uploaded_file,
+            directory: Optional[str] = None
+    ) -> str:
+        """
+        Сохранение загруженного файла
+
+        Args:
+            uploaded_file: Загруженный файл
+            directory (Optional[str]): Директория для сохранения
+
+        Returns:
+            str: Путь к сохраненному файлу
+        """
+        directory = directory or settings.TEMP_UPLOAD_DIR
+        os.makedirs(directory, exist_ok=True)
+
+        # Генерация уникального имени файла
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f"{timestamp}_{uploaded_file.name}"
+        filepath = os.path.join(directory, filename)
+
+        with open(filepath, 'wb') as f:
+            f.write(uploaded_file.getbuffer())
+
+        logger.info(f"Файл сохранен: {filepath}")
+        return filepath
+
+    @staticmethod
+    def get_file_size(filepath: str) -> int:
+        """
+        Получение размера файла в байтах
+
+        Args:
+            filepath (str): Путь к файлу
+
+        Returns:
+            int: Размер файла
+        """
+        return os.path.getsize(filepath)import logging
+import os
+from datetime import datetime
+from config.settings import settings
+
+
+def setup_logger(name: str, level: int = logging.INFO) -> logging.Logger:
+    """
+    Настройка логгера с файловым и консольным выводом
+
+    Args:
+        name (str): Имя логгера
+        level (int): Уровень логирования
+
+    Returns:
+        logging.Logger: Сконфигурированный логгер
+    """
+    # Создание логгера
+    logger = logging.getLogger(name)
+    logger.setLevel(level)
+
+    # Очистка существующих хендлеров
+    if logger.handlers:
+        for handler in logger.handlers[:]:
+            logger.removeHandler(handler)
+
+    # Форматтеры
+    formatter = logging.Formatter(
+        '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+
+    # Файловый логгер
+    log_file_path = os.path.join(
+        settings.LOG_DIR,
+        f"{name}_{datetime.now().strftime('%Y%m%d')}.log"
+    )
+    file_handler = logging.FileHandler(log_file_path, encoding='utf-8')
+    file_handler.setLevel(level)
+    file_handler.setFormatter(formatter)
+
+    # Консольный логгер
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(level)
+    console_handler.setFormatter(formatter)
+
+    # Добавление хендлеров
+    logger.addHandler(file_handler)
+    logger.addHandler(console_handler)
+
+    return loggerfrom typing import Dict, Any, Optional
+import traceback
+from utils.logger import setup_logger
+
+logger = setup_logger('error_handler')
+
+
+class ErrorHandler:
+    """
+    Централизованная обработка ошибок в приложении
+    """
+
+    @staticmethod
+    def handle_error(
+            error: Exception,
+            context: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """
+        Стандартизированная обработка ошибок
+
+        Args:
+            error (Exception): Перехваченное исключение
+            context (Optional[Dict]): Дополнительный контекст ошибки
+
+        Returns:
+            Dict[str, Any]: Структурированное описание ошибки
+        """
+        error_details = {
+            'error_type': type(error).__name__,
+            'error_message': str(error),
+            'traceback': traceback.format_exc()
+        }
+
+        if context:
+            error_details['context'] = context
+
+        # Логирование ошибки
+        logger.error(
+            f"Ошибка: {error_details['error_type']} - {error_details['error_message']}\n"
+            f"Трассировка: {error_details['traceback']}"
+        )
+
+        return error_details

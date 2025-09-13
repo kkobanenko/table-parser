@@ -42,16 +42,30 @@ class Settings:
         Создание всех необходимых директорий
         Метод вызывается при инициализации класса
         """
-        dirs_to_create = [
-            self.TEMP_DIR,
-            self.LOG_DIR,
-            self.SCREENSHOTS_DIR,
-            self.TEMP_UPLOAD_DIR,
-            self.TEMP_PROCESSING_DIR
-        ]
+        try:
+            dirs_to_create = [
+                self.TEMP_DIR,
+                self.LOG_DIR,
+                self.SCREENSHOTS_DIR,
+                self.TEMP_UPLOAD_DIR,
+                self.TEMP_PROCESSING_DIR
+            ]
 
-        for directory in dirs_to_create:
-            directory.mkdir(parents=True, exist_ok=True)
+            for directory in dirs_to_create:
+                directory.mkdir(parents=True, exist_ok=True)
+        except PermissionError:
+            # Если нет прав на создание директорий, используем временные
+            import tempfile
+            temp_dir = Path(tempfile.gettempdir()) / 'table_parser'
+            self.TEMP_DIR = temp_dir
+            self.LOG_DIR = temp_dir / 'logs'
+            self.SCREENSHOTS_DIR = temp_dir / 'screenshots'
+            self.TEMP_UPLOAD_DIR = temp_dir / 'uploads'
+            self.TEMP_PROCESSING_DIR = temp_dir / 'processing'
+            
+            for directory in [self.TEMP_DIR, self.LOG_DIR, self.SCREENSHOTS_DIR, 
+                            self.TEMP_UPLOAD_DIR, self.TEMP_PROCESSING_DIR]:
+                directory.mkdir(parents=True, exist_ok=True)
 
     @classmethod
     def get_db_connection_params(cls) -> dict:
