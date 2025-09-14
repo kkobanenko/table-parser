@@ -101,7 +101,7 @@ class PDFParser:
         if PADDLEOCR_AVAILABLE:
             self.paddleocr_parser = PaddleOCRParser(
                 use_server_model=True,  # Используем server модель для высокой точности
-                lang='en'  # Поддерживаем английский язык
+                lang='ru'  # Поддерживаем русский язык для лучшего распознавания
             )
         else:
             self.paddleocr_parser = None
@@ -325,7 +325,7 @@ class PDFParser:
                     last_page=pages_info["last_page"]
                 )
                 
-                for page_idx, image in enumerate(images, start=pages_info["first_page"]):
+                for page_idx, image in enumerate(images, start=pages_info["first_page"] or 1):
                     # Сохраняем изображение во временный файл
                     temp_image_path = self.temp_dir / f"paddleocr_page_{page_idx}.png"
                     image.save(temp_image_path)

@@ -35,4 +35,5 @@ layoutparser[layout-model]>=0.3.4
 markitdown>=0.0.1a0
 
 # --- PaddleOCR PP-OCRv5 для распознавания текста ---
+paddlepaddle>=3.2.0
 paddleocr>=2.8.0

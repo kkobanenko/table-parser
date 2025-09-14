@@ -12,6 +12,8 @@ FROM python:3.11-slim
 #   - tesseract-ocr: OCR (английский и русский)
 #   - libgl1/libglib2.0-0: для OpenCV
 #   - openjdk-17-jre-headless: для Tabula (требуется Java)
+#   - libgomp1: для PaddlePaddle
+#   - libgcc-s1: для PaddlePaddle
 # -------------------------------
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
@@ -24,6 +26,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libsm6 \
     libxext6 \
     libxrender-dev \
+    libgomp1 \
+    libgcc-s1 \
     openjdk-21-jre-headless \
     wget \
     curl \
