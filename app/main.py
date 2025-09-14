@@ -64,10 +64,47 @@ def main() -> None:
             st.write("📄 **Предобработка:**")
             enable_preprocessing = st.checkbox("Включить предобработку", value=True)
             if enable_preprocessing:
+                enable_stamp_removal = st.checkbox("🔴 Удаление оттисков печатей", value=True,
+                                                 help="Удаляет синие и красные печати с документа")
+                if enable_stamp_removal:
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.write("**Синие печати:**")
+                        blue_h_min = st.slider("H min", 0, 180, 100, key="blue_h_min")
+                        blue_h_max = st.slider("H max", 0, 180, 130, key="blue_h_max")
+                        blue_s_min = st.slider("S min", 0, 255, 50, key="blue_s_min")
+                        blue_v_min = st.slider("V min", 0, 255, 50, key="blue_v_min")
+                    
+                    with col2:
+                        st.write("**Красные печати:**")
+                        red_h_min = st.slider("H min", 0, 180, 0, key="red_h_min")
+                        red_h_max = st.slider("H max", 0, 180, 10, key="red_h_max")
+                        red_h_min2 = st.slider("H min2", 0, 180, 170, key="red_h_min2")
+                        red_h_max2 = st.slider("H max2", 0, 180, 180, key="red_h_max2")
+                        red_s_min = st.slider("S min", 0, 255, 50, key="red_s_min")
+                        red_v_min = st.slider("V min", 0, 255, 50, key="red_v_min")
+                    
+                    stamp_method = st.selectbox("Метод удаления", 
+                                              ["white_replacement", "inpainting"],
+                                              index=0,
+                                              help="white_replacement - замена белым, inpainting - интерполяция фона")
+                    kernel_size = st.slider("Размер ядра морфологии", 3, 15, 5,
+                                          help="Размер ядра для морфологических операций")
+                else:
+                    blue_h_min = blue_h_max = blue_s_min = blue_v_min = 0
+                    red_h_min = red_h_max = red_h_min2 = red_h_max2 = red_s_min = red_v_min = 0
+                    stamp_method = "white_replacement"
+                    kernel_size = 5
+                
                 enable_deskew = st.checkbox("Выравнивание (deskew)", value=True)
                 enable_denoise = st.checkbox("Удаление шума (denoise)", value=True)
                 enable_binarize = st.checkbox("Бинаризация", value=False)
             else:
+                enable_stamp_removal = False
+                blue_h_min = blue_h_max = blue_s_min = blue_v_min = 0
+                red_h_min = red_h_max = red_h_min2 = red_h_max2 = red_s_min = red_v_min = 0
+                stamp_method = "white_replacement"
+                kernel_size = 5
                 enable_deskew = enable_denoise = enable_binarize = False
             
             # Layout детекция
@@ -196,6 +233,7 @@ def main() -> None:
         # Настройки комплексного пайплайна
         "use_pipeline": use_pipeline,
         "enable_preprocessing": enable_preprocessing,
+        "enable_stamp_removal": enable_stamp_removal,
         "enable_deskew": enable_deskew,
         "enable_denoise": enable_denoise,
         "enable_binarize": enable_binarize,
@@ -205,7 +243,24 @@ def main() -> None:
         "ocr_method": ocr_method,
         "enable_table_detection": enable_table_detection,
         "enable_export": enable_export,
-        "export_formats": export_formats
+        "export_formats": export_formats,
+        # Настройки удаления печатей
+        "stamp_removal_method": stamp_method,
+        "blue_hsv_thresholds": {
+            "h_min": blue_h_min,
+            "h_max": blue_h_max,
+            "s_min": blue_s_min,
+            "v_min": blue_v_min
+        },
+        "red_hsv_thresholds": {
+            "h_min": red_h_min,
+            "h_max": red_h_max,
+            "h_min2": red_h_min2,
+            "h_max2": red_h_max2,
+            "s_min": red_s_min,
+            "v_min": red_v_min
+        },
+        "morphology_kernel_size": kernel_size
     }
 
     for uploaded_file in uploaded_files:

@@ -88,9 +88,16 @@ class DocumentPipeline:
         """
         # Предобработка
         self.preprocessing_enabled = config.get('enable_preprocessing', False)
+        self.stamp_removal_enabled = config.get('enable_stamp_removal', False)
         self.deskew_enabled = config.get('enable_deskew', False)
         self.denoise_enabled = config.get('enable_denoise', False)
         self.binarize_enabled = config.get('enable_binarize', False)
+        
+        # Настройки удаления печатей
+        self.stamp_removal_method = config.get('stamp_removal_method', 'white_replacement')
+        self.blue_hsv_thresholds = config.get('blue_hsv_thresholds', {'h_min': 100, 'h_max': 130, 's_min': 50, 'v_min': 50})
+        self.red_hsv_thresholds = config.get('red_hsv_thresholds', {'h_min': 0, 'h_max': 10, 'h_min2': 170, 'h_max2': 180, 's_min': 50, 'v_min': 50})
+        self.morphology_kernel_size = config.get('morphology_kernel_size', 5)
         
         # Layout детекция
         self.layout_detection_enabled = config.get('enable_layout_detection', False)
@@ -109,6 +116,11 @@ class DocumentPipeline:
         
         logger.info(f"🔧 Пайплайн сконфигурирован:")
         logger.info(f"  📄 Предобработка: {self.preprocessing_enabled}")
+        if self.preprocessing_enabled:
+            logger.info(f"    🔴 Удаление печатей: {self.stamp_removal_enabled}")
+            logger.info(f"    📐 Выравнивание: {self.deskew_enabled}")
+            logger.info(f"    🔇 Удаление шума: {self.denoise_enabled}")
+            logger.info(f"    ⚫ Бинаризация: {self.binarize_enabled}")
         logger.info(f"  🎯 Layout детекция: {self.layout_detection_enabled}")
         logger.info(f"  🔍 OCR: {self.ocr_enabled} ({self.ocr_method})")
         logger.info(f"  📊 Детекция таблиц: {self.table_detection_enabled}")
@@ -267,8 +279,12 @@ class DocumentPipeline:
         return page_result
     
     def _preprocess_image(self, image: np.ndarray) -> np.ndarray:
-        """Предобработка изображения (deskew/denoise/binarize)."""
+        """Предобработка изображения (stamp_removal/deskew/denoise/binarize)."""
         processed = image.copy()
+        
+        # Stamp Removal (удаление оттисков печатей)
+        if self.stamp_removal_enabled:
+            processed = self._remove_stamps(processed)
         
         # Deskew (выравнивание)
         if self.deskew_enabled:
@@ -382,6 +398,97 @@ class DocumentPipeline:
             
         except Exception as e:
             logger.warning(f"⚠️ Ошибка бинаризации: {e}")
+            return image
+    
+    def _remove_stamps(self, image: np.ndarray) -> np.ndarray:
+        """
+        Удаление оттисков печатей с изображения.
+        
+        Использует цветовую сегментацию в HSV пространстве для выделения
+        синих и красных печатей, затем удаляет их с помощью морфологических операций.
+        
+        Args:
+            image: Входное изображение в формате BGR
+            
+        Returns:
+            Обработанное изображение без печатей
+        """
+        try:
+            # Конвертируем в HSV для лучшего выделения цветов
+            hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+            
+            # Создаем маски для синих печатей
+            blue_lower = np.array([
+                self.blue_hsv_thresholds['h_min'],
+                self.blue_hsv_thresholds['s_min'],
+                self.blue_hsv_thresholds['v_min']
+            ])
+            blue_upper = np.array([
+                self.blue_hsv_thresholds['h_max'],
+                255, 255
+            ])
+            blue_mask = cv2.inRange(hsv, blue_lower, blue_upper)
+            
+            # Создаем маски для красных печатей (красный цвет в HSV имеет два диапазона)
+            red_lower1 = np.array([
+                self.red_hsv_thresholds['h_min'],
+                self.red_hsv_thresholds['s_min'],
+                self.red_hsv_thresholds['v_min']
+            ])
+            red_upper1 = np.array([
+                self.red_hsv_thresholds['h_max'],
+                255, 255
+            ])
+            red_mask1 = cv2.inRange(hsv, red_lower1, red_upper1)
+            
+            red_lower2 = np.array([
+                self.red_hsv_thresholds['h_min2'],
+                self.red_hsv_thresholds['s_min'],
+                self.red_hsv_thresholds['v_min']
+            ])
+            red_upper2 = np.array([
+                self.red_hsv_thresholds['h_max2'],
+                255, 255
+            ])
+            red_mask2 = cv2.inRange(hsv, red_lower2, red_upper2)
+            
+            # Объединяем маски красных печатей
+            red_mask = cv2.bitwise_or(red_mask1, red_mask2)
+            
+            # Объединяем все маски печатей
+            stamp_mask = cv2.bitwise_or(blue_mask, red_mask)
+            
+            # Морфологические операции для очистки маски
+            kernel_size = self.morphology_kernel_size
+            kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (kernel_size, kernel_size))
+            
+            # Закрытие для заполнения отверстий в печатях
+            stamp_mask = cv2.morphologyEx(stamp_mask, cv2.MORPH_CLOSE, kernel)
+            
+            # Открытие для удаления шума
+            stamp_mask = cv2.morphologyEx(stamp_mask, cv2.MORPH_OPEN, kernel)
+            
+            # Применяем маску к изображению
+            result = image.copy()
+            
+            if self.stamp_removal_method == 'white_replacement':
+                # Простая замена белым цветом
+                result[stamp_mask > 0] = [255, 255, 255]
+            elif self.stamp_removal_method == 'inpainting':
+                # Продвинутая интерполяция фона
+                result = cv2.inpaint(result, stamp_mask, 3, cv2.INPAINT_TELEA)
+            
+            # Подсчитываем количество удаленных пикселей для логирования
+            removed_pixels = np.sum(stamp_mask > 0)
+            total_pixels = image.shape[0] * image.shape[1]
+            removal_percentage = (removed_pixels / total_pixels) * 100
+            
+            logger.debug(f"🔴 Удалено печатей: {removed_pixels} пикселей ({removal_percentage:.2f}%)")
+            
+            return result
+            
+        except Exception as e:
+            logger.warning(f"⚠️ Ошибка удаления печатей: {e}")
             return image
     
     def _detect_layout_regions(self, image: np.ndarray) -> List[Dict[str, Any]]:
