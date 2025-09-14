@@ -47,6 +47,10 @@ def main() -> None:
                                     help="Конвертация файлов в Markdown с сохранением структуры таблиц")
         use_paddleocr = st.checkbox("Использовать PaddleOCR PP-OCRv5", value=False,
                                    help="Распознавание текста с помощью PaddleOCR PP-OCRv5 (высокая точность)")
+        use_doctr = st.checkbox("Использовать DocTR (Mindee)", value=False,
+                               help="OCR и анализ документов с помощью DocTR от Mindee")
+        use_layoutparser = st.checkbox("Использовать LayoutParser", value=False,
+                                      help="Анализ структуры документов и извлечение таблиц с помощью LayoutParser")
         
         # Общие настройки
         st.subheader("⚙️ Общие настройки")
@@ -120,6 +124,8 @@ def main() -> None:
         "use_spacing_analysis": use_spacing_analysis,
         "use_markitdown": use_markitdown,
         "use_paddleocr": use_paddleocr,
+        "use_doctr": use_doctr,
+        "use_layoutparser": use_layoutparser,
         "check_rotations": check_rotations,
         "pages": pages
     }

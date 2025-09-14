@@ -45,6 +45,20 @@ try:
 except ImportError:
     PADDLEOCR_AVAILABLE = False
 
+# Условный импорт DocTR парсера
+try:
+    from parsers.doctr_parser import DocTRParser
+    DOCTR_AVAILABLE = True
+except ImportError:
+    DOCTR_AVAILABLE = False
+
+# Условный импорт LayoutParser парсера
+try:
+    from parsers.layoutparser_parser import LayoutParserParser
+    LAYOUTPARSER_AVAILABLE = True
+except ImportError:
+    LAYOUTPARSER_AVAILABLE = False
+
 logger = setup_logger("pdf_parser")
 
 
@@ -106,6 +120,30 @@ class PDFParser:
         else:
             self.paddleocr_parser = None
             logger.warning("⚠️ PaddleOCR не установлен, парсер будет недоступен")
+        
+        # DocTR парсер
+        if DOCTR_AVAILABLE:
+            self.doctr_parser = DocTRParser(
+                det_arch='db_resnet50',
+                reco_arch='crnn_vgg16_bn',
+                pretrained=True,
+                assume_straight_pages=True,
+                preserve_aspect_ratio=False
+            )
+        else:
+            self.doctr_parser = None
+            logger.warning("⚠️ DocTR не установлен, парсер будет недоступен")
+        
+        # LayoutParser парсер
+        if LAYOUTPARSER_AVAILABLE:
+            self.layoutparser_parser = LayoutParserParser(
+                model_name='lp://EfficientDete/PubLayNet',
+                confidence_threshold=0.8,
+                ocr_agent='tesseract'
+            )
+        else:
+            self.layoutparser_parser = None
+            logger.warning("⚠️ LayoutParser не установлен, парсер будет недоступен")
 
         # Директория для скриншотов ячеек и OCR
         self.screenshots_dir = Path(app_settings.SCREENSHOTS_DIR)
@@ -351,7 +389,69 @@ class PDFParser:
         elif use_paddleocr and self.paddleocr_parser is None:
             logger.warning("PaddleOCR Parser запрошен, но не доступен (модуль не установлен)")
 
-        # 6) Дополнительные методы парсинга
+        # 6) DocTR парсер (работает с изображениями страниц)
+        use_doctr = opts.get("use_doctr", False)
+        if use_doctr and self.doctr_parser is not None:
+            logger.info("🔄 DocTR (Mindee) парсинг")
+            try:
+                # DocTR может работать напрямую с PDF файлами
+                doctr_tables = self.doctr_parser.extract_tables(str(file_path))
+                
+                for dt in doctr_tables:
+                    final_tables.append({
+                        "data": pd.DataFrame(dt),
+                        "sheet_name": f"DocTR_Table_{len(final_tables) + 1}",
+                        "source": "doctr",
+                        "rotation": 0,
+                        "cleaning_method": "doctr_mindee"
+                    })
+                    logger.info("✅ DocTR_Table → %d×%d", len(dt), len(dt[0]) if dt else 0)
+                    
+            except Exception as e:
+                logger.warning("DocTR (Mindee) failed: %s", e)
+        elif use_doctr and self.doctr_parser is None:
+            logger.warning("DocTR Parser запрошен, но не доступен (модуль не установлен)")
+
+        # 7) LayoutParser парсер (работает с изображениями страниц)
+        use_layoutparser = opts.get("use_layoutparser", False)
+        if use_layoutparser and self.layoutparser_parser is not None:
+            logger.info("🔄 LayoutParser парсинг")
+            try:
+                # Конвертируем PDF страницы в изображения для LayoutParser
+                images = convert_from_path(
+                    str(file_path), 
+                    dpi=self.settings["dpi"],
+                    first_page=pages_info["first_page"],
+                    last_page=pages_info["last_page"]
+                )
+                
+                for page_idx, image in enumerate(images, start=pages_info["first_page"] or 1):
+                    # Сохраняем изображение во временный файл
+                    temp_image_path = self.temp_dir / f"layoutparser_page_{page_idx}.png"
+                    image.save(temp_image_path)
+                    
+                    # Обрабатываем изображение через LayoutParser
+                    layoutparser_tables = self.layoutparser_parser.extract_tables(str(temp_image_path))
+                    
+                    for lt in layoutparser_tables:
+                        final_tables.append({
+                            "data": pd.DataFrame(lt),
+                            "sheet_name": f"LayoutParser_Table_page_{page_idx}_{len(final_tables) + 1}",
+                            "source": "layoutparser",
+                            "rotation": 0,
+                            "cleaning_method": "layoutparser"
+                        })
+                        logger.info("✅ LayoutParser_Table → %d×%d", len(lt), len(lt[0]) if lt else 0)
+                    
+                    # Удаляем временный файл
+                    temp_image_path.unlink(missing_ok=True)
+                    
+            except Exception as e:
+                logger.warning("LayoutParser failed: %s", e)
+        elif use_layoutparser and self.layoutparser_parser is None:
+            logger.warning("LayoutParser Parser запрошен, но не доступен (модуль не установлен)")
+
+        # 8) Дополнительные методы парсинга
         if (use_text_structure or use_spacing or use_easyocr or use_spacing_analysis):
             logger.info("🔍 Пробуем дополнительные методы парсинга")
             images = convert_from_path(

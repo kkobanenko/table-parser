@@ -37,3 +37,10 @@ markitdown>=0.0.1a0
 # --- PaddleOCR PP-OCRv5 для распознавания текста ---
 paddlepaddle>=3.2.0
 paddleocr>=2.8.0
+
+# --- DocTR (Mindee) для OCR и анализа документов ---
+python-doctr[torch]>=0.8.0
+
+# --- LayoutParser для анализа структуры документов ---
+layoutparser[ocr]>=0.3.4
+detectron2>=0.6
