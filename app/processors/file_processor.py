@@ -15,6 +15,13 @@ from parsers.pdf_parser import PDFParser
 from parsers.docx_parser import DOCXParser
 from parsers.csv_parser import CSVParser
 
+# Импорт пайплайна
+try:
+    from pipeline.document_pipeline import DocumentPipeline
+    PIPELINE_AVAILABLE = True
+except ImportError:
+    PIPELINE_AVAILABLE = False
+
 logger = setup_logger("file_processor")
 
 
@@ -57,7 +64,36 @@ class FileProcessor:
         try:
             # PDF gets passed options
             if suffix == ".pdf":
-                tables = parser.extract_tables(tmp_path, pdf_options or {})
+                # Проверяем, нужно ли использовать комплексный пайплайн
+                if (pdf_options and pdf_options.get("use_pipeline", False) and 
+                    PIPELINE_AVAILABLE):
+                    
+                    logger.info(f"🔄 Используем комплексный пайплайн для {file_name}")
+                    
+                    # Инициализируем пайплайн
+                    pipeline = DocumentPipeline()
+                    pipeline.configure_pipeline(pdf_options)
+                    pipeline.initialize_components()
+                    
+                    # Обрабатываем документ через пайплайн
+                    results = pipeline.process_document(str(tmp_path))
+                    
+                    # Конвертируем результаты в формат, ожидаемый UI
+                    tables = results.get('tables', [])
+                    
+                    # Добавляем информацию о пайплайне в результат
+                    pipeline_info = {
+                        'pipeline_used': True,
+                        'pages_processed': len(results.get('pages', [])),
+                        'layout_regions_found': len(results.get('layout_regions', [])),
+                        'export_files': results.get('export_files', [])
+                    }
+                    
+                    logger.info(f"✅ Пайплайн завершен: {len(tables)} таблиц, {pipeline_info['pages_processed']} страниц")
+                    
+                else:
+                    # Обычная обработка PDF
+                    tables = parser.extract_tables(tmp_path, pdf_options or {})
             else:
                 tables = parser.extract_tables(tmp_path)
         except Exception as e:

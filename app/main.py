@@ -52,6 +52,71 @@ def main() -> None:
         use_layoutparser = st.checkbox("Использовать LayoutParser", value=False,
                                       help="Анализ структуры документов и извлечение таблиц с помощью LayoutParser")
         
+        # Комплексный пайплайн
+        st.subheader("🔄 Комплексный пайплайн")
+        use_pipeline = st.checkbox("Использовать комплексный пайплайн", value=False,
+                                  help="Полный пайплайн: PDF→Image→Preprocessing→Layout→OCR→Tables→Export")
+        
+        if use_pipeline:
+            st.write("**Настройки пайплайна:**")
+            
+            # Предобработка
+            st.write("📄 **Предобработка:**")
+            enable_preprocessing = st.checkbox("Включить предобработку", value=True)
+            if enable_preprocessing:
+                enable_deskew = st.checkbox("Выравнивание (deskew)", value=True)
+                enable_denoise = st.checkbox("Удаление шума (denoise)", value=True)
+                enable_binarize = st.checkbox("Бинаризация", value=False)
+            else:
+                enable_deskew = enable_denoise = enable_binarize = False
+            
+            # Layout детекция
+            st.write("🎯 **Layout детекция:**")
+            enable_layout_detection = st.checkbox("Включить детекцию layout", value=True)
+            if enable_layout_detection:
+                layout_model = st.selectbox("Модель layout", 
+                                          ["lp://EfficientDete/PubLayNet", 
+                                           "lp://PubLayNet/faster_rcnn_R_50_FPN_3x"],
+                                          index=0)
+            else:
+                layout_model = "lp://EfficientDete/PubLayNet"
+            
+            # OCR
+            st.write("🔍 **OCR:**")
+            enable_ocr = st.checkbox("Включить OCR", value=True)
+            if enable_ocr:
+                ocr_method = st.selectbox("OCR метод", 
+                                       ["paddleocr", "doctr", "tesseract"],
+                                       index=0,
+                                       help="PaddleOCR PP-OCRv5 рекомендуется для русского языка")
+            else:
+                ocr_method = "paddleocr"
+            
+            # Детекция таблиц
+            st.write("📊 **Детекция таблиц:**")
+            enable_table_detection = st.checkbox("Включить детекцию таблиц", value=True)
+            
+            # Экспорт
+            st.write("💾 **Экспорт:**")
+            enable_export = st.checkbox("Включить экспорт", value=True)
+            if enable_export:
+                export_formats = st.multiselect("Форматы экспорта",
+                                             ["json", "excel", "csv", "txt"],
+                                             default=["json", "excel"],
+                                             help="JSON - метаданные, Excel/CSV - таблицы, TXT - текст")
+            else:
+                export_formats = ["json"]
+        else:
+            # Если пайплайн не используется, устанавливаем значения по умолчанию
+            enable_preprocessing = enable_deskew = enable_denoise = enable_binarize = False
+            enable_layout_detection = False
+            layout_model = "lp://EfficientDete/PubLayNet"
+            enable_ocr = False
+            ocr_method = "paddleocr"
+            enable_table_detection = False
+            enable_export = False
+            export_formats = ["json"]
+        
         # Общие настройки
         st.subheader("⚙️ Общие настройки")
         check_rotations = st.checkbox("Исследовать повороты документа", value=False, 
@@ -127,7 +192,20 @@ def main() -> None:
         "use_doctr": use_doctr,
         "use_layoutparser": use_layoutparser,
         "check_rotations": check_rotations,
-        "pages": pages
+        "pages": pages,
+        # Настройки комплексного пайплайна
+        "use_pipeline": use_pipeline,
+        "enable_preprocessing": enable_preprocessing,
+        "enable_deskew": enable_deskew,
+        "enable_denoise": enable_denoise,
+        "enable_binarize": enable_binarize,
+        "enable_layout_detection": enable_layout_detection,
+        "layout_model": layout_model,
+        "enable_ocr": enable_ocr,
+        "ocr_method": ocr_method,
+        "enable_table_detection": enable_table_detection,
+        "enable_export": enable_export,
+        "export_formats": export_formats
     }
 
     for uploaded_file in uploaded_files:

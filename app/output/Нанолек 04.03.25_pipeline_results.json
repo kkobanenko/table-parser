@@ -1,0 +1,21 @@
+{
+  "file_path": "input/Нанолек 04.03.25.pdf",
+  "pages_count": 2,
+  "tables_count": 0,
+  "text_length": 140,
+  "layout_regions_count": 0,
+  "pages": [
+    {
+      "page_idx": 0,
+      "text_length": 69,
+      "tables_count": 0,
+      "layout_regions_count": 0
+    },
+    {
+      "page_idx": 1,
+      "text_length": 69,
+      "tables_count": 0,
+      "layout_regions_count": 0
+    }
+  ]
+}
