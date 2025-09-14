@@ -201,6 +201,8 @@ class DocumentPipeline:
                 # Собираем результаты
                 if 'tables' in page_result:
                     results['tables'].extend(page_result['tables'])
+                if 'ocr_tables' in page_result:
+                    results['tables'].extend(page_result['ocr_tables'])
                 if 'text' in page_result:
                     results['text'] += page_result['text'] + '\n'
                 if 'layout_regions' in page_result:
@@ -246,14 +248,22 @@ class DocumentPipeline:
             'tables': []
         }
         
+        # Создаем папку temp для промежуточных файлов
+        Path("temp").mkdir(exist_ok=True)
+        
         # Конвертируем PIL Image в numpy array для OpenCV
         img_array = np.array(image)
         if len(img_array.shape) == 3:
             img_array = cv2.cvtColor(img_array, cv2.COLOR_RGB2BGR)
         
+        # Сохраняем оригинальное изображение
+        original_path = f"temp/page_{page_idx+1}_original.png"
+        cv2.imwrite(original_path, img_array)
+        logger.debug(f"💾 Сохранено оригинальное изображение: {original_path}")
+        
         # Этап 2: Предобработка изображения
         if self.preprocessing_enabled:
-            img_array = self._preprocess_image(img_array)
+            img_array = self._preprocess_image(img_array, page_idx)
             page_result['processed_image'] = Image.fromarray(cv2.cvtColor(img_array, cv2.COLOR_BGR2RGB))
         
         # Этап 3: Детекция layout зон
@@ -270,6 +280,24 @@ class DocumentPipeline:
                 # OCR всей страницы
                 text = self._ocr_full_page(img_array)
             page_result['text'] = text
+            
+            # Если PaddleOCR уже извлек таблицы, сохраняем их
+            if hasattr(self.ocr_agent, 'extract_tables'):
+                try:
+                    # Сохраняем временный файл для PaddleOCR
+                    temp_path = f"temp/ocr_temp_{id(img_array)}.png"
+                    cv2.imwrite(temp_path, img_array)
+                    
+                    try:
+                        ocr_tables = self.ocr_agent.extract_tables(temp_path)
+                        if ocr_tables:
+                            page_result['ocr_tables'] = ocr_tables
+                            logger.debug(f"📊 PaddleOCR извлек {len(ocr_tables)} таблиц")
+                    finally:
+                        if Path(temp_path).exists():
+                            Path(temp_path).unlink()
+                except Exception as e:
+                    logger.warning(f"⚠️ Ошибка извлечения таблиц PaddleOCR: {e}")
         
         # Этап 5: Детекция таблиц
         if self.table_detection_enabled and self.table_detector:
@@ -278,25 +306,42 @@ class DocumentPipeline:
         
         return page_result
     
-    def _preprocess_image(self, image: np.ndarray) -> np.ndarray:
+    def _preprocess_image(self, image: np.ndarray, page_idx: int) -> np.ndarray:
         """Предобработка изображения (stamp_removal/deskew/denoise/binarize)."""
         processed = image.copy()
         
         # Stamp Removal (удаление оттисков печатей)
         if self.stamp_removal_enabled:
             processed = self._remove_stamps(processed)
+            stamp_path = f"temp/page_{page_idx+1}_stamp_removed.png"
+            cv2.imwrite(stamp_path, processed)
+            logger.debug(f"💾 Сохранено изображение после удаления печатей: {stamp_path}")
         
         # Deskew (выравнивание)
         if self.deskew_enabled:
             processed = self._deskew_image(processed)
+            deskew_path = f"temp/page_{page_idx+1}_deskewed.png"
+            cv2.imwrite(deskew_path, processed)
+            logger.debug(f"💾 Сохранено изображение после выравнивания: {deskew_path}")
         
         # Denoise (удаление шума)
         if self.denoise_enabled:
             processed = self._denoise_image(processed)
+            denoise_path = f"temp/page_{page_idx+1}_denoised.png"
+            cv2.imwrite(denoise_path, processed)
+            logger.debug(f"💾 Сохранено изображение после удаления шума: {denoise_path}")
         
         # Binarize (бинаризация)
         if self.binarize_enabled:
             processed = self._binarize_image(processed)
+            binary_path = f"temp/page_{page_idx+1}_binarized.png"
+            cv2.imwrite(binary_path, processed)
+            logger.debug(f"💾 Сохранено бинаризованное изображение: {binary_path}")
+        
+        # Сохраняем финальное обработанное изображение
+        final_path = f"temp/page_{page_idx+1}_final_processed.png"
+        cv2.imwrite(final_path, processed)
+        logger.debug(f"💾 Сохранено финальное обработанное изображение: {final_path}")
         
         return processed
     
