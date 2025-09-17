@@ -5,7 +5,7 @@ services:
     build: .
     container_name: medical-table-parser
     ports:
-      - "8501:8501"
+      - "8511:8511"
     volumes:
       # Основная папка проекта монтируется прямо в /app
       - ./app:/app

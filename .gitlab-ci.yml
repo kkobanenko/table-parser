@@ -1,5 +1,50 @@
 image: python:3.10
 
+stages: [build, deploy]
+
+# шаблон для деплоя
+.deploy_template:
+  stage: deploy
+  image: alpine:3.20
+  before_script:
+    # Устанавливаем ssh-клиент
+    - apk add --no-cache openssh-client
+    # Создаём директорию для ключей
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    # Записываем приватный ключ из переменной в файл
+    - echo "$DEPLOY_KEY" > ~/.ssh/id_rsa
+    - chmod 600 ~/.ssh/id_rsa
+    # Добавляем fingerprint сервера в known_hosts (иначе ssh спросит «yes/no»)
+    - ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+  script:
+    # Выполняем скрипт деплоя на сервере
+    - ssh -i ~/.ssh/id_rsa "$DEPLOY_USER@$DEPLOY_HOST" "bash -s" < ci/deploy.sh
+
+deploy_stage:
+  extends: .deploy_template
+  environment:
+    name: staging
+  variables:
+    DEPLOY_KEY: $DEPLOY_KEY_STAGE
+    DEPLOY_USER: deploy_stage
+    DEPLOY_HOST: 10.30.203.109
+  rules:
+    - if: $CI_COMMIT_BRANCH  # при каждом пуше
+
+deploy_prod:
+  extends: .deploy_template
+  environment:
+    name: production
+  when: manual
+  variables:
+    DEPLOY_KEY: $DEPLOY_KEY_PROD
+    DEPLOY_USER: deploy_product
+    DEPLOY_HOST: 10.30.203.110
+  rules:
+    - if: $DEPLOY_PROD == "true"
+
+
 stages:
   - install
   - test

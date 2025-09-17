@@ -248,8 +248,8 @@ class DocumentPipeline:
             'tables': []
         }
         
-        # Создаем папку temp для промежуточных файлов
-        Path("temp").mkdir(exist_ok=True)
+        # Создаем папку output для промежуточных файлов
+        Path("output").mkdir(exist_ok=True)
         
         # Конвертируем PIL Image в numpy array для OpenCV
         img_array = np.array(image)
@@ -257,7 +257,7 @@ class DocumentPipeline:
             img_array = cv2.cvtColor(img_array, cv2.COLOR_RGB2BGR)
         
         # Сохраняем оригинальное изображение
-        original_path = f"temp/page_{page_idx+1}_original.png"
+        original_path = f"output/page_{page_idx+1}_original.png"
         cv2.imwrite(original_path, img_array)
         logger.debug(f"💾 Сохранено оригинальное изображение: {original_path}")
         
@@ -285,7 +285,7 @@ class DocumentPipeline:
             if hasattr(self.ocr_agent, 'extract_tables'):
                 try:
                     # Сохраняем временный файл для PaddleOCR
-                    temp_path = f"temp/ocr_temp_{id(img_array)}.png"
+                    temp_path = f"output/ocr_temp_{id(img_array)}.png"
                     cv2.imwrite(temp_path, img_array)
                     
                     try:
@@ -303,6 +303,31 @@ class DocumentPipeline:
         if self.table_detection_enabled and self.table_detector:
             tables = self._detect_tables(img_array, page_result)
             page_result['tables'] = tables
+            # Сохраняем результаты таблиц по странице
+            try:
+                if tables:
+                    import json
+                    page_no = page_idx + 1
+                    # CSV/TXT
+                    csv_path = f"output/page_{page_no}_tables.csv"
+                    txt_path = f"output/page_{page_no}_tables.txt"
+                    with open(csv_path, 'w', encoding='utf-8') as fcsv:
+                        for ti, table in enumerate(tables):
+                            for row in table:
+                                fcsv.write(';'.join(str(c) for c in row) + "\n")
+                    with open(txt_path, 'w', encoding='utf-8') as ftxt:
+                        ftxt.write(json.dumps(tables, ensure_ascii=False, indent=2))
+                    # Простейшая визуализация: сохраняем исходную картинку с сеткой ячеек, если есть bbox'ы в page_result
+                    vis_path = f"output/page_{page_no}_tables.png"
+                    vis = img_array.copy()
+                    # Если есть детальные ячейки — нарисуем (см. ниже сохранение ячеек)
+                    if 'cells' in page_result:
+                        for cell in page_result['cells']:
+                            x1, y1, x2, y2 = cell.get('bbox', [0, 0, 0, 0])
+                            cv2.rectangle(vis, (int(x1), int(y1)), (int(x2), int(y2)), (0, 0, 255), 1)
+                    cv2.imwrite(vis_path, vis)
+            except Exception:
+                pass
         
         return page_result
     
@@ -313,33 +338,33 @@ class DocumentPipeline:
         # Stamp Removal (удаление оттисков печатей)
         if self.stamp_removal_enabled:
             processed = self._remove_stamps(processed)
-            stamp_path = f"temp/page_{page_idx+1}_stamp_removed.png"
+            stamp_path = f"output/page_{page_idx+1}_stamp_removed.png"
             cv2.imwrite(stamp_path, processed)
             logger.debug(f"💾 Сохранено изображение после удаления печатей: {stamp_path}")
         
         # Deskew (выравнивание)
         if self.deskew_enabled:
             processed = self._deskew_image(processed)
-            deskew_path = f"temp/page_{page_idx+1}_deskewed.png"
+            deskew_path = f"output/page_{page_idx+1}_deskewed.png"
             cv2.imwrite(deskew_path, processed)
             logger.debug(f"💾 Сохранено изображение после выравнивания: {deskew_path}")
         
         # Denoise (удаление шума)
         if self.denoise_enabled:
             processed = self._denoise_image(processed)
-            denoise_path = f"temp/page_{page_idx+1}_denoised.png"
+            denoise_path = f"output/page_{page_idx+1}_denoised.png"
             cv2.imwrite(denoise_path, processed)
             logger.debug(f"💾 Сохранено изображение после удаления шума: {denoise_path}")
         
         # Binarize (бинаризация)
         if self.binarize_enabled:
             processed = self._binarize_image(processed)
-            binary_path = f"temp/page_{page_idx+1}_binarized.png"
+            binary_path = f"output/page_{page_idx+1}_binarized.png"
             cv2.imwrite(binary_path, processed)
             logger.debug(f"💾 Сохранено бинаризованное изображение: {binary_path}")
         
         # Сохраняем финальное обработанное изображение
-        final_path = f"temp/page_{page_idx+1}_final_processed.png"
+        final_path = f"output/page_{page_idx+1}_final_processed.png"
         cv2.imwrite(final_path, processed)
         logger.debug(f"💾 Сохранено финальное обработанное изображение: {final_path}")
         
@@ -370,7 +395,13 @@ class DocumentPipeline:
         return processed_pages
     
     def _deskew_image(self, image: np.ndarray) -> np.ndarray:
-        """Выравнивание изображения (deskew)."""
+        """Выравнивание изображения (deskew) с проверкой уверенности.
+        
+        Эвристика уверенности:
+        - Должно быть найдено достаточно линий (>= 30)
+        - Медианный угол по модулю > 3° (чтобы не крутить нормальные страницы)
+        - Стандартное отклонение углов < 8° (углы должны быть согласованными)
+        """
         try:
             # Конвертируем в grayscale для анализа
             gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -388,15 +419,25 @@ class DocumentPipeline:
                     angles.append(angle)
                 
                 if angles:
-                    median_angle = np.median(angles)
+                    median_angle = float(np.median(angles))
+                    std_angle = float(np.std(angles))
+                    num_lines = len(angles)
+                    # Критерий уверенности
+                    confident = (num_lines >= 30 and abs(median_angle) > 3.0 and std_angle < 8.0)
                     
-                    # Поворачиваем изображение
-                    if abs(median_angle) > 0.5:  # Только если угол значительный
+                    # Поворачиваем изображение только при уверенном наклоне
+                    if confident:
+                        logger.debug(f"📐 Обнаружен наклон: {median_angle:.2f}°")
                         h, w = image.shape[:2]
                         center = (w // 2, h // 2)
                         rotation_matrix = cv2.getRotationMatrix2D(center, median_angle, 1.0)
                         image = cv2.warpAffine(image, rotation_matrix, (w, h), 
                                             flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE)
+                        logger.debug(f"📐 Изображение повернуто на {median_angle:.2f}°")
+                    else:
+                        logger.debug(
+                            f"📐 Пропускаем поворот: median={median_angle:.2f}°, std={std_angle:.2f}°, lines={num_lines}"
+                        )
             
             logger.debug(f"📐 Выравнивание изображения выполнено")
             return image
@@ -406,41 +447,97 @@ class DocumentPipeline:
             return image
     
     def _denoise_image(self, image: np.ndarray) -> np.ndarray:
-        """Удаление шума с изображения."""
+        """Удаление шума без потери тонких штрихов текста.
+        
+        Подход:
+        - Для цветного изображения применяем мягкий bilateral фильтр (сохраняет края)
+        - Для градаций серого используем мягкий fastNlMeans
+        """
         try:
-            # Используем Non-local Means Denoising
             if len(image.shape) == 3:
-                denoised = cv2.fastNlMeansDenoisingColored(image, None, 10, 10, 7, 21)
+                # Мягкий bilateral (не размывает границы текста)
+                denoised = cv2.bilateralFilter(image, d=5, sigmaColor=40, sigmaSpace=40)
             else:
-                denoised = cv2.fastNlMeansDenoising(image, None, 10, 7, 21)
-            
-            logger.debug(f"🔇 Удаление шума выполнено")
+                denoised = cv2.fastNlMeansDenoising(image, None, 5, 7, 21)
+            logger.debug("🔇 Удаление шума выполнено (бережное)")
             return denoised
-            
         except Exception as e:
             logger.warning(f"⚠️ Ошибка удаления шума: {e}")
             return image
     
     def _binarize_image(self, image: np.ndarray) -> np.ndarray:
-        """Бинаризация изображения."""
+        """Авто-бинаризация с оценкой шума и удалением мелких точек.
+        
+        - Пробуем несколько вариантов порогов: Otsu, Adaptive (blockSize 11/21, C 2/5)
+        - Выбираем по метрике: минимальная доля маленьких компонент (пыль) при разумной доле чёрных пикселей
+        - После выбора удаляем мелкие компоненты морфологией и контурной фильтрацией
+        """
         try:
-            # Конвертируем в grayscale
+            # Grayscale
             if len(image.shape) == 3:
                 gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
             else:
                 gray = image
-            
-            # Адаптивная бинаризация
-            binary = cv2.adaptiveThreshold(
-                gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2
-            )
-            
-            # Конвертируем обратно в BGR
-            binary_bgr = cv2.cvtColor(binary, cv2.COLOR_GRAY2BGR)
-            
-            logger.debug(f"⚫ Бинаризация выполнена")
-            return binary_bgr
-            
+
+            candidates = []
+            # Otsu (инвертированный и обычный)
+            _, th_otsu = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+            _, th_otsu_inv = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+            candidates.append(th_otsu)
+            candidates.append(th_otsu_inv)
+            # Adaptive разные параметры
+            for block in (11, 21):
+                for c in (2, 5):
+                    th = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+                                               cv2.THRESH_BINARY, block, c)
+                    candidates.append(th)
+
+            def score_binary(mask: np.ndarray) -> Tuple[float, float]:
+                # Оцениваем долю чёрных пикселей и количество маленьких компонент (шум)
+                black_ratio = 1.0 - (float(mask.mean()) / 255.0)
+                # Ищем связные компоненты на инвертированной картинке (чёрный=текст)
+                inv = 255 - mask
+                num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(inv, 8)
+                # Считаем очень маленькие компоненты (< 12 px) как пыль
+                small = 0
+                for i in range(1, num_labels):
+                    area = stats[i, cv2.CC_STAT_AREA]
+                    if area < 12:
+                        small += 1
+                # Метрика: меньше пыли и разумный black_ratio [0.02..0.35]
+                penalty_ratio = 0.0
+                if black_ratio < 0.02 or black_ratio > 0.45:
+                    penalty_ratio = 0.5
+                score = small + penalty_ratio * 100.0
+                return score, black_ratio
+
+            best = None
+            best_score = float('inf')
+            best_ratio = 0.0
+            for cand in candidates:
+                s, r = score_binary(cand)
+                if s < best_score:
+                    best_score, best, best_ratio = s, cand, r
+
+            # Удаляем мелкие точки морфологией (открытие маленьким ядром)
+            kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (2, 2))
+            cleaned = cv2.morphologyEx(best, cv2.MORPH_OPEN, kernel, iterations=1)
+
+            # Дополнительная фильтрация мелких компонентов контурно
+            inv = 255 - cleaned
+            num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(inv, 8)
+            cleaned_inv = inv.copy()
+            for i in range(1, num_labels):
+                area = stats[i, cv2.CC_STAT_AREA]
+                w = stats[i, cv2.CC_STAT_WIDTH]
+                h = stats[i, cv2.CC_STAT_HEIGHT]
+                # Очень маленькие или одиночные точки удаляем
+                if area < 10 or (w <= 1 and h <= 1):
+                    cleaned_inv[labels == i] = 0
+            cleaned_final = 255 - cleaned_inv
+
+            logger.debug(f"⚫ Авто-бинаризация: black_ratio={best_ratio:.3f}, score={best_score:.1f}")
+            return cv2.cvtColor(cleaned_final, cv2.COLOR_GRAY2BGR)
         except Exception as e:
             logger.warning(f"⚠️ Ошибка бинаризации: {e}")
             return image
@@ -503,30 +600,54 @@ class DocumentPipeline:
             # Объединяем все маски печатей
             stamp_mask = cv2.bitwise_or(blue_mask, red_mask)
             
+            # Убираем агрессивные яркостные маски, чтобы не заливать страницу белым
+            # Вместо этого усилим цветовую маску только по насыщенным пикселям
+            sat = hsv[:, :, 1]
+            high_sat = cv2.threshold(sat, 80, 255, cv2.THRESH_BINARY)[1]
+            stamp_mask = cv2.bitwise_and(stamp_mask, high_sat)
+            
             # Морфологические операции для очистки маски
             kernel_size = self.morphology_kernel_size
             kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (kernel_size, kernel_size))
             
-            # Закрытие для заполнения отверстий в печатях
+            # Осторожные морфологические операции: лёгкое закрытие и лёгкое открытие
             stamp_mask = cv2.morphologyEx(stamp_mask, cv2.MORPH_CLOSE, kernel)
-            
-            # Открытие для удаления шума
             stamp_mask = cv2.morphologyEx(stamp_mask, cv2.MORPH_OPEN, kernel)
+
+            # Ограничиваем удаляемую площадь (не более 10% страницы)
+            total_pixels = image.shape[0] * image.shape[1]
+            mask_pixels = int(np.sum(stamp_mask > 0))
+            coverage = mask_pixels / max(1, total_pixels)
+            if coverage > 0.10:
+                logger.debug(f"🔴 Маска печатей слишком большая ({coverage*100:.1f}%), уменьшаем по компонентам")
+                # Оставляем только средние по размеру компоненты (типичные для штампов)
+                num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(stamp_mask, 8)
+                refined = np.zeros_like(stamp_mask)
+                for i in range(1, num_labels):
+                    area = stats[i, cv2.CC_STAT_AREA]
+                    # Эвристика: штампы обычно > 200 пикселей и < 5% страницы
+                    if 200 <= area <= total_pixels * 0.05:
+                        refined[labels == i] = 255
+                stamp_mask = refined
             
-            # Применяем маску к изображению
+            # Если маска маленькая — используем inpaint, иначе аккуратно ослабляем насыщенность
             result = image.copy()
-            
-            if self.stamp_removal_method == 'white_replacement':
-                # Простая замена белым цветом
-                result[stamp_mask > 0] = [255, 255, 255]
-            elif self.stamp_removal_method == 'inpainting':
-                # Продвинутая интерполяция фона
+            mask_pixels_after = int(np.sum(stamp_mask > 0))
+            if mask_pixels_after / max(1, total_pixels) <= 0.06:
+                # Локальное восстановление текстуры
                 result = cv2.inpaint(result, stamp_mask, 3, cv2.INPAINT_TELEA)
+            else:
+                # Ослабляем цвет в маске, чтобы снизить влияние печати, не убивая текст
+                hsv_img = cv2.cvtColor(result, cv2.COLOR_BGR2HSV)
+                h, s, v = cv2.split(hsv_img)
+                s = np.where(stamp_mask > 0, (s * 0.3).astype(np.uint8), s)
+                v = np.where(stamp_mask > 0, np.minimum(255, (v * 1.05)).astype(np.uint8), v)
+                hsv_mod = cv2.merge([h, s, v])
+                result = cv2.cvtColor(hsv_mod, cv2.COLOR_HSV2BGR)
             
             # Подсчитываем количество удаленных пикселей для логирования
-            removed_pixels = np.sum(stamp_mask > 0)
-            total_pixels = image.shape[0] * image.shape[1]
-            removal_percentage = (removed_pixels / total_pixels) * 100
+            removed_pixels = mask_pixels_after
+            removal_percentage = (removed_pixels / max(1, total_pixels)) * 100
             
             logger.debug(f"🔴 Удалено печатей: {removed_pixels} пикселей ({removal_percentage:.2f}%)")
             
@@ -607,17 +728,33 @@ class DocumentPipeline:
         try:
             if self.ocr_method == 'paddleocr' and isinstance(self.ocr_agent, PaddleOCRParser):
                 # Сохраняем временный файл для PaddleOCR
-                temp_path = f"temp/ocr_temp_{id(image)}.png"
-                Path("temp").mkdir(exist_ok=True)
+                temp_path = f"output/ocr_temp_{id(image)}.png"
+                Path("output").mkdir(exist_ok=True)
                 cv2.imwrite(temp_path, image)
                 
                 try:
                     tables = self.ocr_agent.extract_tables(temp_path)
-                    # Извлекаем текст из таблиц
+                    # Извлекаем текст из таблиц (учитывая формат возврата словаря с DataFrame)
                     text_parts = []
-                    for table in tables:
-                        for row in table:
-                            text_parts.append(' '.join(str(cell) for cell in row))
+                    for tbl in tables:
+                        try:
+                            # Формат: { 'data': pd.DataFrame, ... }
+                            if isinstance(tbl, dict) and 'data' in tbl:
+                                data_obj = tbl['data']
+                                if hasattr(data_obj, 'values') and not callable(getattr(data_obj, 'values', None)):
+                                    for row in data_obj.values.tolist():
+                                        text_parts.append(' '.join(str(cell) for cell in row))
+                                elif isinstance(data_obj, list):
+                                    for row in data_obj:
+                                        if isinstance(row, list):
+                                            text_parts.append(' '.join(str(cell) for cell in row))
+                            # Формат: list[list[str]]
+                            elif isinstance(tbl, list):
+                                for row in tbl:
+                                    if isinstance(row, list):
+                                        text_parts.append(' '.join(str(cell) for cell in row))
+                        except Exception:
+                            continue
                     return '\n'.join(text_parts)
                 finally:
                     if Path(temp_path).exists():
@@ -625,8 +762,8 @@ class DocumentPipeline:
             
             elif self.ocr_method == 'doctr' and isinstance(self.ocr_agent, DocTRParser):
                 # Сохраняем временный файл для DocTR
-                temp_path = f"temp/ocr_temp_{id(image)}.png"
-                Path("temp").mkdir(exist_ok=True)
+                temp_path = f"output/ocr_temp_{id(image)}.png"
+                Path("output").mkdir(exist_ok=True)
                 cv2.imwrite(temp_path, image)
                 
                 try:
@@ -660,12 +797,16 @@ class DocumentPipeline:
                 return []
             
             # Сохраняем временный файл
-            temp_path = f"temp/table_detection_{id(image)}.png"
-            Path("temp").mkdir(exist_ok=True)
+            temp_path = f"output/table_detection_{id(image)}.png"
+            Path("output").mkdir(exist_ok=True)
             cv2.imwrite(temp_path, image)
             
             try:
                 tables = self.table_detector.extract_tables(temp_path)
+                # Если детектор возвращает разбиение на ячейки (bbox'ы), сохраним
+                if isinstance(tables, dict):
+                    page_result['cells'] = tables.get('cells', [])
+                    tables = tables.get('tables', [])
                 logger.debug(f"📊 Найдено {len(tables)} таблиц")
                 return tables
             finally:

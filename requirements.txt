@@ -29,7 +29,8 @@ mypy>=1.8
 # --- Для распознавания текста и анализа таблиц ---
 scikit-learn>=1.3
 scipy>=1.11
-layoutparser[layout-model]>=0.3.4
+# layoutparser базовый без моделей, чтобы избежать зависимостей detectron2 при сборке
+layoutparser>=0.3.4
 
 # --- MarkItDown для конвертации файлов в Markdown ---
 markitdown>=0.0.1a0
@@ -43,7 +44,12 @@ python-doctr[torch]>=0.8.0
 
 # --- LayoutParser для анализа структуры документов ---
 layoutparser[ocr]>=0.3.4
-detectron2>=0.6
+# detectron2 временно отключён для облегчения сборки контейнера
+# detectron2>=0.6
+
+# --- Совместимость Google Cloud Vision / protobuf ---
+# Фикс ошибки "Descriptors cannot be created directly" в google-cloud-vision
+protobuf==3.20.3
 
 # --- Дополнительные зависимости для комплексного пайплайна ---
 # Для предобработки изображений

@@ -153,6 +153,13 @@ def main() -> None:
             enable_table_detection = False
             enable_export = False
             export_formats = ["json"]
+            # Переменные удаления печатей и связанные параметры должны быть определены,
+            # т.к. ниже они безусловно используются при формировании pdf_options
+            enable_stamp_removal = False
+            blue_h_min = blue_h_max = blue_s_min = blue_v_min = 0
+            red_h_min = red_h_max = red_h_min2 = red_h_max2 = red_s_min = red_v_min = 0
+            stamp_method = "white_replacement"
+            kernel_size = 5
         
         # Общие настройки
         st.subheader("⚙️ Общие настройки")

@@ -47,7 +47,7 @@ PDF → Image → Preprocessing → Layout Detection → OCR → Table Detection
    docker-compose up
    ```
 
-2. Откройте браузер: http://localhost:8501
+2. Откройте браузер: http://localhost:8511
 
 3. В разделе "🔄 Комплексный пайплайн":
    - Включите "Использовать комплексный пайплайн"

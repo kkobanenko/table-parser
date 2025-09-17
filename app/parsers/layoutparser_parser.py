@@ -80,7 +80,7 @@ class LayoutParserParser:
             logger.error(f"❌ Ошибка инициализации LayoutParser модели: {e}")
             raise
     
-    def extract_tables(self, file_path: str) -> List[List[List[str]]]:
+    def extract_tables(self, file_path: str):
         """
         Извлекает таблицы из документа.
         
@@ -102,6 +102,13 @@ class LayoutParserParser:
             if image is None:
                 return []
             
+            # Если модель не инициализирована, используем только OCR
+            if self.model is None:
+                logger.info("📄 Модель детекции не инициализирована, используем только OCR")
+                tables, cells = self._extract_tables_ocr_only(image, return_cells=True)
+                logger.info(f"✅ LayoutParser извлек {len(tables)} таблиц (OCR only)")
+                return { 'tables': tables, 'cells': cells }
+            
             # Детекция layout элементов
             layout = self.model.detect(image)
             logger.info(f"📄 Найдено {len(layout)} layout элементов")
@@ -112,12 +119,125 @@ class LayoutParserParser:
             
             # Извлечение таблиц
             tables = self._extract_tables_from_elements(image, table_elements)
-            
+            # Собираем ячейки (bbox) из элементов
+            cells = []
+            try:
+                for row in table_elements:
+                    # table_elements это список элементов, не по строкам; сохраним bbox каждого
+                    x1, y1, x2, y2 = row.coordinates
+                    cells.append({ 'bbox': [float(x1), float(y1), float(x2), float(y2)] })
+            except Exception:
+                pass
             logger.info(f"✅ LayoutParser извлек {len(tables)} таблиц")
-            return tables
+            return { 'tables': tables, 'cells': cells }
             
         except Exception as e:
             logger.error(f"❌ Ошибка обработки файла через LayoutParser: {e}")
+            return []
+    
+    def _extract_tables_ocr_only(self, image: np.ndarray, return_cells: bool = False):
+        """
+        Извлекает таблицы используя только OCR без детекции layout.
+        
+        Args:
+            image: Изображение для обработки
+            
+        Returns:
+            Список таблиц
+        """
+        try:
+            # Конвертируем в PIL Image для OCR
+            pil_image = Image.fromarray(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+            
+            # Извлекаем текст через OCR
+            ocr_result = self.ocr.detect(pil_image)
+            
+            if not ocr_result:
+                logger.warning("⚠️ OCR не нашел текст")
+                return []
+            
+            # Простая группировка текста в таблицы + сбор ячеек
+            tables, cells = self._group_text_into_tables(ocr_result, return_cells=True)
+            return (tables, cells) if return_cells else tables
+            
+        except Exception as e:
+            logger.error(f"❌ Ошибка OCR-only извлечения: {e}")
+            return []
+    
+    def _group_text_into_tables(self, ocr_result, return_cells: bool = False):
+        """
+        Группирует OCR результат в таблицы.
+        
+        Args:
+            ocr_result: Результат OCR
+            
+        Returns:
+            Список таблиц или (таблицы, ячейки)
+        """
+        try:
+            # Простая реализация - группируем по строкам
+            lines = []
+            items = []
+            
+            for element in ocr_result:
+                if hasattr(element, 'text') and hasattr(element, 'block'):
+                    text = element.text.strip()
+                    if text:
+                        lines.append((text, element))
+            
+            if not lines:
+                return ([] , []) if return_cells else []
+            
+            # Группируем по строкам по Y-координате
+            # Подготовим элементы с координатами
+            prepared = []
+            for text, el in lines:
+                try:
+                    coords = el.block.coordinates
+                    x1, y1, x2, y2 = coords
+                    prepared.append({
+                        'text': text,
+                        'bbox': [float(x1), float(y1), float(x2), float(y2)],
+                        'y': float(y1),
+                        'x': float(x1)
+                    })
+                except Exception:
+                    prepared.append({ 'text': text, 'bbox': [0,0,0,0], 'y': 0.0, 'x': 0.0 })
+
+            # Сортируем по y, затем группируем с допуском
+            prepared.sort(key=lambda it: it['y'])
+            rows = []
+            row_cells = []
+            y_tol = 12.0
+            current = []
+            for it in prepared:
+                if not current:
+                    current = [it]
+                else:
+                    if abs(it['y'] - current[0]['y']) <= y_tol:
+                        current.append(it)
+                    else:
+                        rows.append(current)
+                        current = [it]
+            if current:
+                rows.append(current)
+
+            tables = []
+            cells = []
+            for r in rows:
+                # по X
+                r.sort(key=lambda it: it['x'])
+                row_texts = [it['text'] for it in r]
+                tables.append(row_texts)
+                for it in r:
+                    cells.append({ 'bbox': it['bbox'] })
+
+            # Одна таблица из всех строк
+            tables_wrapped = [tables] if tables else []
+            return (tables_wrapped, cells) if return_cells else tables_wrapped
+            
+        except Exception as e:
+            logger.error(f"❌ Ошибка группировки текста: {e}")
             return []
     
     def _load_image(self, file_path: str) -> Optional[np.ndarray]:
