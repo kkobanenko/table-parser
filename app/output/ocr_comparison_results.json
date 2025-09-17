@@ -1,0 +1,38 @@
+{
+  "test_file": "input/Нанолек 04.03.25.pdf",
+  "timestamp": "/app",
+  "scenarios": [
+    {
+      "name": "Без предобработки",
+      "pages_processed": 2,
+      "tables_found": 2,
+      "text_length": 8008,
+      "error": null,
+      "table_structures": []
+    },
+    {
+      "name": "Только удаление печатей",
+      "pages_processed": 2,
+      "tables_found": 2,
+      "text_length": 7912,
+      "error": null,
+      "table_structures": []
+    },
+    {
+      "name": "Полная предобработка",
+      "pages_processed": 2,
+      "tables_found": 2,
+      "text_length": 8215,
+      "error": null,
+      "table_structures": []
+    },
+    {
+      "name": "Только бинаризация",
+      "pages_processed": 2,
+      "tables_found": 2,
+      "text_length": 8873,
+      "error": null,
+      "table_structures": []
+    }
+  ]
+}
