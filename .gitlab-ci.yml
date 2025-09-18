@@ -1,71 +1,69 @@
+# Базовый образ для python-джобов (install/test)
 image: python:3.10
 
-stages: [build, deploy]
+stages:
+  - install
+  - test
+  - deploy
 
-# шаблон для деплоя
+# Общие переменные для python-джобов
+variables:
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+  PYTHONDONTWRITEBYTECODE: "1"
+
+# Базовый шаблон для python-джобов
+.default_python_job:
+  before_script:
+    - python -V
+    - pip install --upgrade pip
+    - pip install -r requirements.txt
+
+install:
+  stage: install
+  extends: .default_python_job
+  script:
+    - echo "Dependencies installed."
+
+test:
+  stage: test
+  extends: .default_python_job
+  script:
+    - pytest -q
+  tags:
+    - table_parser_test
+
+# === ДЕПЛОЙ ===
+# Один шаблон для stage/prod. Все параметры приходят из env-scoped variables.
 .deploy_template:
   stage: deploy
   image: alpine:3.20
   before_script:
-    # Устанавливаем ssh-клиент
     - apk add --no-cache openssh-client
-    # Создаём директорию для ключей
-    - mkdir -p ~/.ssh
-    - chmod 700 ~/.ssh
-    # Записываем приватный ключ из переменной в файл
-    - echo "$DEPLOY_KEY" > ~/.ssh/id_rsa
-    - chmod 600 ~/.ssh/id_rsa
-    # Добавляем fingerprint сервера в known_hosts (иначе ssh спросит «yes/no»)
+    - mkdir -p ~/.ssh && chmod 700 ~/.ssh
+    # DEPLOY_KEY — переменная ТИПА File (GitLab подставляет путь к временному файлу)
+    - install -m 600 "$DEPLOY_KEY" ~/.ssh/id_rsa
+    # доверяем fingerprint хоста, чтобы ssh не спрашивал подтверждение
     - ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
   script:
-    # Выполняем скрипт деплоя на сервере
+    # Выполняем серверный скрипт деплоя (лежит в репозитории)
     - ssh -i ~/.ssh/id_rsa "$DEPLOY_USER@$DEPLOY_HOST" "bash -s" < ci/deploy.sh
+  needs: ["test"]     # деплой только после успешных тестов
 
 deploy_stage:
   extends: .deploy_template
   environment:
     name: staging
-  variables:
-    DEPLOY_KEY: $DEPLOY_KEY_STAGE
-    DEPLOY_USER: deploy_stage
-    DEPLOY_HOST: 10.30.203.109
   rules:
-    - if: $CI_COMMIT_BRANCH  # при каждом пуше
+    # ограничьте при необходимости (например, только main/develop)
+    - if: $CI_COMMIT_BRANCH
 
 deploy_prod:
   extends: .deploy_template
   environment:
     name: production
   when: manual
-  variables:
-    DEPLOY_KEY: $DEPLOY_KEY_PROD
-    DEPLOY_USER: deploy_product
-    DEPLOY_HOST: 10.30.203.110
   rules:
+    # включать прод-деплой только по флагу или релизным тегам
     - if: $DEPLOY_PROD == "true"
-
-
-stages:
-  - install
-  - test
-
-variables:
-  PIP_DISABLE_PIP_VERSION_CHECK: "1"
-  PYTHONDONTWRITEBYTECODE: "1"
-
-before_script:
-  - python -V
-  - pip install --upgrade pip
-  - pip install -r requirements.txt
-
-install:
-  stage: install
-  script:
-    - echo "Dependencies installed."
-
-test:
-  stage: test
-  script:
-    - pytest
-  tags:
-    - table_parser_test
+    - if: $CI_COMMIT_TAG
+  allow_failure: false
